@@ -1,0 +1,36 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+  "python.terminal.activateEnvironment": true,
+  "python.analysis.extraPaths": ["${workspaceFolder}/src"],
+  "python.analysis.exclude": [
+    "**/__pycache__",
+    ".venv",
+    ".python",
+    "logs",
+    "previews"
+  ],
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"],
+  "python.testing.cwd": "${workspaceFolder}",
+  "terminal.integrated.env.windows": {
+    "PYTHONPATH": "${workspaceFolder}\\src"
+  },
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true
+  },
+  "search.exclude": {
+    ".venv": true,
+    ".python": true,
+    "assets/models": true,
+    "logs": true,
+    "previews": true
+  },
+  "[bat]": {
+    "files.eol": "\r\n"
+  }
+}

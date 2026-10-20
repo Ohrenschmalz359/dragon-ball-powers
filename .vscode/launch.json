@@ -1,0 +1,43 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Dragon Ball Powers",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "dragon_ball_powers",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Dragon Ball Powers (CPU renderer)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "dragon_ball_powers",
+      "args": ["--renderer", "cpu"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Self-check",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "dragon_ball_powers",
+      "args": ["--check"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

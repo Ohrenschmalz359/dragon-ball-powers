@@ -1,0 +1,20 @@
+[project]
+name = "dragon-ball-powers"
+version = "1.0.0"
+description = "Real-time webcam ki energy attacks: hand/body tracking, gesture recognition and GPU visual effects"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "MIT" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
+markers = [
+    "gl: needs an OpenGL 3.3 context (skipped automatically when unavailable)",
+    "mediapipe: runs the real MediaPipe models (skipped when models are missing)",
+    "slow: slower integration tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

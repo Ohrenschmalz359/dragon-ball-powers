@@ -1,0 +1,36 @@
+# Python environments (recreate with setup.bat)
+.venv/
+.python/
+venv/
+env/
+
+# Python caches / build output
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Logs and generated runtime files
+logs/
+*.log
+config/settings.json
+config/calibration.json
+recordings/
+screenshots/
+previews/
+
+# Downloaded model files (setup.bat downloads and verifies them)
+assets/models/*.task
+
+# Temporary / OS / editor files
+*.tmp
+*.bak
+~$*
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/

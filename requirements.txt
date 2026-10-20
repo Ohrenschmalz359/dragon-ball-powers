@@ -1,0 +1,24 @@
+# Dragon Ball Powers - runtime dependencies
+# Target: Python 3.12 (64-bit) on Windows 10/11. Install with:  setup.bat
+#
+# MediaPipe is pinned to 0.10.21 on purpose: newer releases (0.10.30+ / 1.x)
+# ship a native library that uploads usage metrics to Google. 0.10.21 does not
+# contain that telemetry endpoint and exposes the same Tasks API we use.
+mediapipe==0.10.21
+
+# mediapipe 0.10.21 requires numpy<2; everything below is pinned to versions that
+# are compatible with numpy 1.26 and have prebuilt Windows wheels.
+numpy==1.26.4
+opencv-contrib-python==4.11.0.86
+protobuf>=4.25.3,<5
+jax==0.6.2
+jaxlib==0.6.2
+scipy==1.16.3
+
+# Window, input, fonts, audio
+pygame-ce==2.5.8
+# GPU rendering (OpenGL 3.3 core). The app falls back to a CPU renderer if unavailable.
+moderngl==5.13.0
+
+# Optional: readable camera names on Windows (DirectShow). The app works without it.
+pygrabber==0.2; sys_platform == "win32"

@@ -1,0 +1,17 @@
+# Batch files must keep CRLF line endings: with LF endings cmd.exe misparses
+# labels and goto/call targets.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Source and docs use LF.
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+
+# Binary assets.
+*.task binary
+*.ttf binary
+*.png binary
+*.jpg binary
