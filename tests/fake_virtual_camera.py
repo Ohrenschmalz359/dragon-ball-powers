@@ -1,9 +1,10 @@
 """Run the app with a fake virtual camera driver (used by tests/test_virtual_camera.py).
 
 Usage: ``python tests/fake_virtual_camera.py [app arguments]``. Every real pyvirtualcam
-backend is replaced by the fake, so no real device (e.g. an installed OBS Virtual Camera)
-is touched. What the fake receives is written to ``$DBP_FAKE_VCAM_DIR``: ``stats.json``
-and the most detailed picture (highest standard deviation) as ``best.npy``.
+backend is replaced by the fake and the Windows 11 camera is switched off, so no real
+device (e.g. an installed OBS Virtual Camera) is touched. What the fake receives is
+written to ``$DBP_FAKE_VCAM_DIR``: ``stats.json`` and the most detailed picture (highest
+standard deviation) as ``best.npy``.
 """
 
 from __future__ import annotations
@@ -52,6 +53,7 @@ class FakeBackend:
 def main() -> int:
     pyvirtualcam_camera.BACKENDS.clear()
     pyvirtualcam.register_backend("fake", FakeBackend)
+    os.environ["DBP_WIN11_CAMERA"] = "0"
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
     from dragon_ball_powers.main import main as app_main
 

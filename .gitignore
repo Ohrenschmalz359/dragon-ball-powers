@@ -39,3 +39,7 @@ desktop.ini
 virtualcam/
 # setup.sh staging folder
 .python.new/
+
+# Local builds of the Windows 11 camera (native/win11_camera/build.cmd)
+native/win11_camera/out/
+native/win11_camera/deps/

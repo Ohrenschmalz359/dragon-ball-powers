@@ -28,11 +28,11 @@ movements frame by frame.
    `install_virtual_camera.bat` once and confirm the administrator prompt (no OBS
    needed), then press **V** in the app ("VCAM LIVE" appears at the top) and choose
    **"Dragon Ball Powers"** as the camera in the call program. The others see you with
-   the effects, without the HUD and the right way round. **WhatsApp:** the WhatsApp
-   Desktop app does not accept virtual cameras and WhatsApp Web has no calls; share the
-   app window with the call's screen sharing instead (`H` hides the HUD). None of this
-   works on phones. Details:
-   [Video calls](#video-calls-discord-zoom-teams-google-meet-).
+   the effects, without the HUD and the right way round. **WhatsApp Desktop** only lists
+   cameras that Windows itself provides: on Windows 11 also run `install_win11_camera.bat`
+   once (experimental) and choose **"Dragon Ball Powers (Windows 11)"**; otherwise share
+   the app window with the call's screen sharing (`H` hides the HUD). None of this works
+   on phones. Details: [Video calls](#video-calls-discord-zoom-teams-google-meet-).
 6. **Problems?** `run.bat --check` checks Python, packages, models, OpenGL, cameras,
    audio and the virtual camera. The log is in `logs\dragon_ball_powers.log`.
 
@@ -127,7 +127,8 @@ works in **FaceTime**. Details: [macOS and Linux](#macos-and-linux).
 
 **Video calls** (see [Video calls](#video-calls-discord-zoom-teams-google-meet-))
 - Virtual camera output (V): Discord, Zoom, Teams, Google Meet and other browser calls …
-  see you *with* the effects and callouts, without the HUD, the right way round.
+  see you *with* the effects and callouts, without the HUD, the right way round. On
+  Windows 11 also WhatsApp Desktop and the Windows Camera app (experimental).
 
 ## Requirements
 
@@ -142,7 +143,8 @@ works in **FaceTime**. Details: [macOS and Linux](#macos-and-linux).
 - Internet access once, during setup (≈ 400 MB of Python packages, 53 MB of models).
   The app itself runs offline.
 - Optional, for video calls: a virtual camera driver — on Windows `install_virtual_camera.bat`
-  (no OBS needed), on macOS OBS Studio 30+ (see [Video calls](#video-calls-discord-zoom-teams-google-meet-)).
+  (no OBS needed; on Windows 11 also `install_win11_camera.bat` for WhatsApp Desktop), on
+  macOS OBS Studio 30+ (see [Video calls](#video-calls-discord-zoom-teams-google-meet-)).
 
 ## Installation
 
@@ -298,6 +300,8 @@ Keyboard attacks use exactly the same ability, effect and rendering code as gest
 The app can be a **webcam for other programs**: your video call shows the camera picture
 with the energy effects and the big callouts (without the HUD). One integration works for
 the programs that accept virtual cameras — Discord, Zoom, Teams, browsers and most others.
+On Windows 11 a second camera also reaches the apps that only take cameras provided by
+Windows itself, such as WhatsApp Desktop and the Windows Camera app.
 
 **One-time setup** (the Python part, `pyvirtualcam`, comes with `setup.bat` / `setup.sh`;
 run it again after updating an older copy of the project):
@@ -305,6 +309,7 @@ run it again after updating an older copy of the project):
 | System | Driver for the virtual camera |
 |--------|-------------------------------|
 | **Windows** (no OBS needed) | double-click **`install_virtual_camera.bat`** once and confirm the administrator prompt. It downloads the small Unity Capture filter (MIT license, ~330 KB, checksum-verified) into `virtualcam\` and registers it as the camera **"Dragon Ball Powers"**. `install_virtual_camera.bat --uninstall` removes it (do that before moving or deleting the folder). Alternatively OBS Studio's "OBS Virtual Camera" works too. |
+| **Windows 11** — also WhatsApp Desktop (experimental, in addition to the row above) | double-click **`install_win11_camera.bat`** once and confirm the administrator prompt. It copies the camera driver from `drivers\win11\` (built from `native\win11_camera\` by GitHub Actions, checksum-verified) to `C:\Program Files\Dragon Ball Powers` and creates the camera **"Dragon Ball Powers (Windows 11)"**, a Windows 11 virtual camera (Media Foundation) that Windows offers to every app. Some apps add *(Windows Virtual Camera)* to the name. The app feeds both cameras at the same time. `install_win11_camera.bat --uninstall` removes it. |
 | **macOS** | [OBS Studio](https://obsproject.com) 30 or newer: install it, open it, click **Start Virtual Camera** once and allow the system extension in System Settings (a restart may be needed), click Stop Virtual Camera and quit OBS. The camera is called **"OBS Virtual Camera"**; OBS does not need to run afterwards. Apple only allows virtual cameras as signed system extensions, so there is no OBS-free way on macOS. |
 | **Linux** | v4l2loopback: `sudo apt install v4l2loopback-dkms && sudo modprobe v4l2loopback devices=1` |
 
@@ -312,8 +317,8 @@ run it again after updating an older copy of the project):
 
 1. Start the app and press **V** (or *Tab → Video calls → Virtual camera*). The HUD shows
    **VCAM LIVE** (also in fullscreen). The choice is remembered for the next start.
-2. In the call program select **"Dragon Ball Powers"** (Windows driver from above) or
-   **"OBS Virtual Camera"** as the camera:
+2. In the call program select **"Dragon Ball Powers"** or **"Dragon Ball Powers
+   (Windows 11)"** (Windows drivers from above) or **"OBS Virtual Camera"** as the camera:
 
    | Program | Where |
    |---------|-------|
@@ -322,7 +327,8 @@ run it again after updating an older copy of the project):
    | Microsoft Teams | Settings → Devices → Camera |
    | Google Meet and other browser calls | the meeting's camera setting (Chrome, Edge, Firefox, Safari) |
    | FaceTime | macOS: in FaceTime's *Video* menu. Windows: only through a FaceTime link in Chrome or Edge, choose the camera in the browser |
-   | WhatsApp | WhatsApp does not support virtual cameras (the Desktop app does not list them, WhatsApp Web has no calls): start a video call in WhatsApp Desktop and share the app window with its **screen sharing** (press **H** to hide the HUD) |
+   | WhatsApp | Windows 11 with `install_win11_camera.bat`: in WhatsApp Desktop under Settings → Video & voice → Camera (or in the call), choose **"Dragon Ball Powers (Windows 11)"**. Otherwise WhatsApp shows no virtual camera (WhatsApp Web has no calls): share the app window with the call's **screen sharing** (press **H** to hide the HUD) |
+   | Windows Camera app | a quick test of the Windows 11 camera: switch cameras until you see the picture |
    | OBS (streaming) | simply add a *Window Capture* of the app window instead |
 
 3. The others see 1280×720 at 30 fps (1920×1080 in the settings), **not mirrored** — like
@@ -337,9 +343,12 @@ Good to know:
 - The effect **sounds** play on your speakers; the others hear them only through your
   microphone (not when you wear headphones).
 - **Phones** cannot use it: WhatsApp and FaceTime on a phone only use the phone's camera.
-- A program does not list the camera? Restart it after installing the driver. Some Store
-  apps only show real cameras: use the service in the browser, or share the app window
-  with screen sharing (press **H** to hide the HUD).
+- A program does not list the camera? Restart it after installing the driver. Some apps
+  (WhatsApp Desktop, the Windows Camera app, other Store apps) only show cameras that
+  Windows provides: on Windows 11 install `install_win11_camera.bat`, otherwise use the
+  service in the browser or share the app window with screen sharing (**H** hides the HUD).
+- "Dragon Ball Powers (Windows 11)" shows a dark blue picture while the app does not send
+  (app closed or V off). Its log: `C:\ProgramData\Dragon Ball Powers\win11-camera.log`.
 - `--check` tests the virtual camera, `--virtual-camera` switches it on for this run, and
   `--test-pattern --smoke-test 16 --virtual-camera` sends a test picture through it (exit
   code 0 = it works) — with `run.bat` on Windows or `bash run.sh` on macOS / Linux.
@@ -378,7 +387,9 @@ Delete `config\settings.json` to return to the defaults (or use *Reset to defaul
 | Low FPS | lower the quality (Tab → Effects), use `"pose_model": "lite"`, lower the camera resolution |
 | OpenGL errors / black window | `run.bat --renderer cpu`; update your GPU driver |
 | No sound | check the Windows output device; `audio.enabled` in the settings |
-| "No virtual camera driver found" | Windows: run `install_virtual_camera.bat` once (or install OBS Studio), then press V again |
+| "No virtual camera driver found" | Windows: run `install_virtual_camera.bat` once (on Windows 11 also `install_win11_camera.bat`), then press V again |
+| WhatsApp Desktop / the Windows Camera app does not list the camera | Windows 11: run `install_win11_camera.bat` once and restart WhatsApp; Windows Settings → Privacy & security → Camera must allow camera access for apps |
+| The call shows a dark blue picture ("Dragon Ball Powers (Windows 11)") | the app does not send: start it and press V ("VCAM LIVE"). Still blue: send `C:\ProgramData\Dragon Ball Powers\win11-camera.log` |
 | "No virtual camera found" (macOS) | OBS Studio 30+: click Start Virtual Camera once, allow the system extension in System Settings, quit OBS, press V |
 | macOS: black picture / "not authorized" camera error | System Settings → Privacy & Security → Camera: allow Terminal, then START CAMERA in the app |
 | "The virtual camera is busy" | stop "Virtual Camera" in OBS if it runs, or switch the camera off and on in the call program, then press V |
@@ -403,6 +414,8 @@ Delete `config\settings.json` to return to the defaults (or use *Reset to defaul
 - Sync mode shows the analysed frame, which adds about one camera frame of video delay
   in exchange for perfectly aligned effects (`camera.sync_video_to_tracking`).
 - Gesture thresholds are tuned for adults standing 0.5–3 m from the camera.
+- The Windows 11 camera (`install_win11_camera.bat`) is new: it is tested automatically on
+  Windows 11 through the Windows camera frame server, but not yet with WhatsApp itself.
 
 ## Privacy
 
@@ -421,6 +434,10 @@ dragon-ball-powers\
 ├── run.bat                  start the app
 ├── setup.bat                one-time setup (Python, .venv, packages, models)
 ├── install_virtual_camera.bat  optional: camera "Dragon Ball Powers" for video calls
+├── install_win11_camera.bat optional (Windows 11): camera "Dragon Ball Powers (Windows 11)",
+│                            also for WhatsApp Desktop
+├── drivers\win11\           that camera's driver (x64, arm64), built by GitHub Actions
+├── native\win11_camera\     its C++ source (Media Foundation media source) and test
 ├── setup.sh / run.sh        the same for macOS and Linux (bash setup.sh, bash run.sh)
 ├── requirements.txt         pinned runtime packages (requirements-dev.txt adds pytest)
 ├── pyproject.toml           project metadata + pytest configuration
@@ -442,6 +459,7 @@ dragon-ball-powers\
 │   ├── renderer_cpu.py      NumPy/OpenCV fallback renderer
 │   ├── ui.py                HUD, settings panel, overlays
 │   ├── virtual_camera.py    video-call output (virtual webcam via pyvirtualcam)
+│   ├── win11_camera.py      picture writer for the Windows 11 camera (shared memory)
 │   ├── audio.py             procedural sound effects
 │   ├── fonts.py             font loading (bundled fonts)
 │   ├── datatypes.py, interfaces.py, mathutil.py
@@ -508,7 +526,7 @@ setup.bat --dev
 .venv\Scripts\python -m pytest
 ```
 
-The suite (653 tests) needs no webcam: camera code is tested with fakes, tracking with
+The suite (737 tests) needs no webcam: camera code is tested with fakes, tracking with
 the real models, gestures with a synthetic motion generator (`tests/motion_synth.py`),
 the renderers offscreen, `tests/test_integration.py` pushes synthetic and real tracking
 through gestures → abilities → effects → renderer, and `tests/test_app_smoke.py` runs
@@ -528,5 +546,7 @@ Effect previews without a camera: `python scripts/render_preview.py` (writes PNG
   is switched on — keep that in mind if you redistribute the app).
 - Windows virtual camera driver: the Unity Capture filter (MIT), downloaded by
   `install_virtual_camera.bat` from github.com/schellingb/UnityCapture (not bundled).
+- Windows 11 camera (`native/win11_camera`, `drivers/win11`): project code (MIT), built
+  with Microsoft's WIL and C++/WinRT (both MIT).
 
 Dragon Ball is a trademark of its owners; this is an unofficial fan project.
