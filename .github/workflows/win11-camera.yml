@@ -54,6 +54,22 @@ jobs:
         continue-on-error: ${{ matrix.arch == 'x64' }}
         run: out\CameraTest.exe inproc "%CD%\out\DragonBallPowersCamera.dll"
 
+      - name: Allow camera access and start the camera services (Windows 11)
+        if: matrix.arch == 'arm64'
+        run: |
+          reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam" /v Value /t REG_SZ /d Allow /f
+          reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam" /v Value /t REG_SZ /d Allow /f
+          reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam\NonPackaged" /v Value /t REG_SZ /d Allow /f
+          sc qc FrameServer
+          sc config FrameServer start= demand
+          sc config FrameServerMonitor start= demand
+          net start FrameServer
+          net start FrameServerMonitor
+          sc query FrameServer
+          sc query FrameServerMonitor
+          echo session %SESSIONNAME% user %USERNAME%
+          exit /b 0
+
       - name: Install the virtual camera (Windows 11)
         if: matrix.arch == 'arm64'
         run: |
@@ -62,6 +78,12 @@ jobs:
           start "" /wait regsvr32 /s /n /i "%ProgramFiles%\Dragon Ball Powers Test\DragonBallPowersCamera.dll"
           if errorlevel 1 (echo regsvr32 failed & exit /b 1)
           echo installed
+
+      - name: Devices after the installation
+        if: matrix.arch == 'arm64'
+        run: |
+          powershell -NoProfile -Command "Get-PnpDevice | Where-Object { $_.Class -in 'Camera','Image','SoftwareComponent' -or $_.FriendlyName -like '*Dragon*' } | Format-Table -AutoSize Status,Class,FriendlyName,InstanceId | Out-String -Width 300"
+          exit /b 0
 
       - name: Virtual camera test (through the frame server)
         if: matrix.arch == 'arm64'

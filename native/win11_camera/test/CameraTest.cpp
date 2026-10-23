@@ -217,11 +217,13 @@ namespace
         CHECK(MFCreateAttributes(&attributes, 1));
         CHECK(attributes->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE, MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID));
         ComPtr<IMFActivate> camera;
-        for (int attempt = 0; attempt < 30 && !camera; attempt++)
+        for (int attempt = 0; attempt < 40 && !camera; attempt++)
         {
             IMFActivate** devices = nullptr;
             UINT32 count = 0;
             CHECK(MFEnumDeviceSources(attributes.Get(), &devices, &count));
+            if (attempt == 0 || attempt == 39)
+                printf("  attempt %d: %u video capture device(s)\n", attempt, count);
             for (UINT32 i = 0; i < count; i++)
             {
                 wchar_t* name = nullptr;
