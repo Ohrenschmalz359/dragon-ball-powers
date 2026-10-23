@@ -3,6 +3,9 @@
 *.bat text eol=crlf
 *.cmd text eol=crlf
 
+# Shell scripts (macOS / Linux) must keep LF line endings.
+*.sh text eol=lf
+
 # Source and docs use LF.
 *.py text eol=lf
 *.md text eol=lf

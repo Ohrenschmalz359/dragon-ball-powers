@@ -44,6 +44,9 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SETUP_BAT = ROOT / "setup.bat"
 RUN_BAT = ROOT / "run.bat"
+VCAM_BAT = ROOT / "install_virtual_camera.bat"
+SETUP_SH = ROOT / "setup.sh"
+RUN_SH = ROOT / "run.sh"
 SCRIPT = ROOT / "scripts" / "download_models.py"
 MANIFEST = ROOT / "assets" / "models" / "models.json"
 MODELS_DIR = ROOT / "assets" / "models"
@@ -69,7 +72,7 @@ EXPECTED_MODELS = {
         "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b", 30664242),
 }
 
-BATCH_FILES = [SETUP_BAT, RUN_BAT]
+BATCH_FILES = [SETUP_BAT, RUN_BAT, VCAM_BAT]
 
 
 def _text(path: Path) -> str:
@@ -164,6 +167,23 @@ def test_setup_bat_pins_python_build_standalone():
     assert "%%2B" in url
     assert url.replace("%%", "%") == PBS_URL
     assert sha == PBS_SHA256
+
+
+VCAM_COMMIT = "3ed54c325e0ad71afcf4f246c07e5e17b3d7f2d2"
+VCAM_SHA = {"64": "72812f5363d8ecb45632253f8c8c888844b1b62e27616f3c8cc21064ccde25e5",
+            "32": "aa3ebdf03dea7f3aab3dd7b724751f49ed71672256b57c6a19aa6809cabf30ba"}
+
+
+def test_virtual_camera_bat_pins_the_driver():
+    text = _text(VCAM_BAT)
+    base = re.search(r'(?m)^set "VC_BASE=(.*)"\r?$', text).group(1)
+    assert base == f"https://raw.githubusercontent.com/schellingb/UnityCapture/{VCAM_COMMIT}/Install"
+    for bits, sha in VCAM_SHA.items():
+        assert re.search(rf'(?m)^set "VC_SHA{bits}=(.*)"\r?$', text).group(1) == sha
+    assert 'set "VC_NAME=Dragon Ball Powers"' in text
+    # Only the registry step runs elevated, through one UAC prompt with a fixed argument.
+    assert "-Verb RunAs" in text and "--elevated-install" in text and "fltmc.exe" in text
+    assert '"/i:UnityCaptureName=%VC_NAME%"' in text
 
 
 def _probe_code() -> str:
@@ -882,7 +902,7 @@ def project_copy(win_sandbox) -> ProjectCopy:
     posix_root, win_root = win_sandbox
     proj = posix_root / TRICKY_NAME
     (proj / "scripts").mkdir(parents=True)
-    for name in ("setup.bat", "run.bat", "requirements.txt", "requirements-dev.txt"):
+    for name in ("setup.bat", "run.bat", "install_virtual_camera.bat", "requirements.txt", "requirements-dev.txt"):
         shutil.copyfile(ROOT / name, proj / name)
     shutil.copyfile(SCRIPT, proj / "scripts" / "download_models.py")
     _write_wrapper(posix_root, "wrap.bat")
@@ -944,6 +964,28 @@ def test_run_bat_without_venv_shows_friendly_error(project_copy):
     assert "[ERROR] Dragon Ball Powers is not set up yet." in out
     assert "Run setup.bat first" in out
     assert TRICKY_NAME in out  # the folder is reported correctly despite "&", "(" and "!"
+
+
+def test_virtual_camera_bat_help_and_bad_option(project_copy):
+    code, out = _run_batch(project_copy, "install_virtual_camera.bat", "--help")
+    assert code == 0, out
+    for word in ("--uninstall", "--dry-run", "DBP_NO_PAUSE", "Exit codes", "Dragon Ball Powers"):
+        assert word in out
+    code, out = _run_batch(project_copy, "install_virtual_camera.bat", "--bogus")
+    assert code == 2 and 'Unknown option "--bogus"' in out, out
+
+
+def test_virtual_camera_bat_dry_run_changes_nothing(project_copy):
+    before = _snapshot(project_copy.proj)
+    code, out = _run_batch(project_copy, "install_virtual_camera.bat", "--dry-run")
+    assert code == 0, out
+    assert "UnityCaptureFilter64.dll" in out and "/i:UnityCaptureName=Dragon Ball Powers" in out
+    assert "Dry run finished" in out
+    code, out = _run_batch(project_copy, "install_virtual_camera.bat", "--uninstall", "--dry-run")
+    assert code == 0 and "regsvr32 /u" in out, out
+    code, out = _run_batch(project_copy, "install_virtual_camera.bat", "--uninstall")
+    assert code == 0 and "Nothing to remove" in out, out      # no driver files: no UAC prompt
+    assert _snapshot(project_copy.proj) == before                # nothing downloaded or created
 
 
 def test_setup_bat_help(project_copy):
@@ -1166,3 +1208,75 @@ def test_setup_bat_dry_run_dev_and_incomplete_project(project_copy):
     assert "[6/6]" in out  # a dry run reports every step ...
     # ... and names the first one a real run would stop at
     assert "Dry run finished: a real run would stop at step 5 - scripts\\download_models.py is missing" in out
+
+
+# ================================================================ shell scripts
+
+
+SHELL_SCRIPTS = [SETUP_SH, RUN_SH]
+PBS_UNIX_SHA256 = {
+    "aarch64-apple-darwin": "ba32036ad8f4c434d97a1ee7feef8b7edc0fac16777639b97e39c74a108e4440",
+    "x86_64-apple-darwin": "9686ddd8639b855905447ea4a16eb54a804a9ef12afbe7c9ecb1412d9c1fbc98",
+    "x86_64-unknown-linux-gnu": "5d546fc004fc2435fa142eb8f42ed8de5eb4725963dc22f7e6671014a80eb560",
+    "aarch64-unknown-linux-gnu": "34a43010cc05982d8b5debbad7d09f7b1200117ebf018f7acfd656895e408205",
+}
+
+
+def _bash() -> str:
+    bash = shutil.which("bash")
+    if bash is None or sys.platform == "win32":
+        pytest.skip("bash (macOS / Linux) is not available")
+    return bash
+
+
+@pytest.mark.parametrize("path", SHELL_SCRIPTS, ids=lambda p: p.name)
+def test_shell_script_is_lf_ascii_and_parses(path: Path):
+    data = path.read_bytes()
+    data.decode("ascii")
+    assert b"\r" not in data, "CR found: macOS / Linux need LF line endings"
+    assert data.startswith(b"#!/usr/bin/env bash\n")
+    proc = subprocess.run([_bash(), "-n", str(path)], capture_output=True, text=True, timeout=30)
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_setup_sh_pins_the_same_python_as_setup_bat():
+    text = SETUP_SH.read_text(encoding="ascii")
+    assert 'PBS_VERSION="3.12.15+20261013"' in text and 'PBS_TAG="20261013"' in text
+    assert "/releases/download/20261013/" in PBS_URL                     # setup.bat's release
+    for target, sha in PBS_UNIX_SHA256.items():
+        assert re.search(rf"{re.escape(target)}\)\s+echo \"{sha}\"", text), target
+
+
+def test_setup_sh_probe_code_accepts_this_interpreter():
+    code = re.search(r'(?m)^PROBE_CODE="(.*)"$', SETUP_SH.read_text(encoding="ascii")).group(1)
+    proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
+    assert proc.stdout.startswith(f"Python {sys.version_info[0]}.{sys.version_info[1]}.")
+    assert proc.returncode == (0 if sys.version_info[:2] in ((3, 11), (3, 12)) else 3)
+
+
+def test_shell_scripts_safe_paths(tmp_path: Path):
+    bash = _bash()
+    proj = tmp_path / "my project & (copy)"
+    (proj / "scripts").mkdir(parents=True)
+    for name in ("setup.sh", "run.sh", "requirements.txt", "requirements-dev.txt"):
+        shutil.copyfile(ROOT / name, proj / name)
+    shutil.copyfile(SCRIPT, proj / "scripts" / "download_models.py")
+    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONHOME", "PYTHONPATH")}
+    env["PATH"] = "/usr/bin:/bin"          # no python3.12 / python3.11 on PATH: forces the download path
+
+    def run(script: str, *args: str) -> tuple[int, str]:
+        proc = subprocess.run([bash, str(proj / script), *args], capture_output=True, text=True, env=env,
+                              stdin=subprocess.DEVNULL, timeout=120)
+        return proc.returncode, proc.stdout + proc.stderr
+
+    code, out = run("setup.sh", "--help")
+    assert code == 0 and "--dry-run" in out and "bash run.sh" in out, out
+    code, out = run("setup.sh", "--bogus")
+    assert code == 2 and 'Unknown option "--bogus"' in out, out
+    code, out = run("run.sh", "--windowed")
+    assert code == 1 and "is not set up yet" in out and str(proj) in out, out
+    before = _snapshot(proj)
+    code, out = run("setup.sh", "--dry-run")
+    assert code == 0 and "Dry run finished" in out, out
+    assert "[dry-run]" in out and "[6/6]" in out
+    assert _snapshot(proj) == before                                    # nothing changed

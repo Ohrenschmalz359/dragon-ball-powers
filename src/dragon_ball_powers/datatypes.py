@@ -141,6 +141,7 @@ class CameraInfo:
     name: str
     backend: str = "auto"
     is_ir: bool = False  # infrared (Windows Hello) cameras are poor choices for tracking
+    is_virtual: bool = False  # a virtual camera output such as "OBS Virtual Camera" (not a webcam)
 
     @property
     def label(self) -> str:
@@ -168,6 +169,34 @@ class CameraStatus:
     fps: float = 0.0
     frames: int = 0
     error: str | None = None
+
+
+# --------------------------------------------------------------- virtual camera
+
+
+class VirtualCameraState(str, enum.Enum):
+    OFF = "off"
+    STARTING = "starting"
+    RUNNING = "running"
+    ERROR = "error"
+
+
+@dataclass
+class VirtualCameraStatus:
+    """Snapshot of the virtual camera output for video calls (see virtual_camera.py)."""
+
+    state: VirtualCameraState = VirtualCameraState.OFF
+    device: str = ""                   # e.g. "OBS Virtual Camera"
+    backend: str = ""                  # pyvirtualcam backend: "obs" | "unitycapture" | "v4l2loopback"
+    resolution: tuple[int, int] = (0, 0)
+    fps: float = 0.0
+    frames: int = 0                    # frames sent to the device
+    error: str | None = None
+
+    @property
+    def active(self) -> bool:
+        """Switched on and not failed (starting or running)."""
+        return self.state in (VirtualCameraState.STARTING, VirtualCameraState.RUNNING)
 
 
 # ---------------------------------------------------------------------- tracking

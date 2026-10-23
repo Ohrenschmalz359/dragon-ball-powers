@@ -1,5 +1,5 @@
 # Dragon Ball Powers - runtime dependencies
-# Target: Python 3.12 (64-bit) on Windows 10/11. Install with:  setup.bat
+# Target: Python 3.12 (64-bit) on Windows 10/11 (setup.bat), macOS 11+ and Linux (setup.sh).
 #
 # MediaPipe is pinned to 0.10.21 on purpose: newer releases (0.10.30+ / 1.x)
 # ship a native library that uploads usage metrics to Google. 0.10.21 does not
@@ -11,14 +11,24 @@ mediapipe==0.10.21
 numpy==1.26.4
 opencv-contrib-python==4.11.0.86
 protobuf>=4.25.3,<5
-jax==0.6.2
-jaxlib==0.6.2
+# jax/jaxlib (MediaPipe dependencies) stopped publishing Intel-Mac wheels after 0.4.38.
+jax==0.6.2; sys_platform != "darwin" or platform_machine != "x86_64"
+jaxlib==0.6.2; sys_platform != "darwin" or platform_machine != "x86_64"
+jax==0.4.38; sys_platform == "darwin" and platform_machine == "x86_64"
+jaxlib==0.4.38; sys_platform == "darwin" and platform_machine == "x86_64"
 scipy==1.16.3
 
 # Window, input, fonts, audio
 pygame-ce==2.5.8
 # GPU rendering (OpenGL 3.3 core). The app falls back to a CPU renderer if unavailable.
-moderngl==5.13.0
+# 5.13 has no Intel-Mac wheels; 5.12 offers the same API there.
+moderngl==5.13.0; sys_platform != "darwin" or platform_machine != "x86_64"
+moderngl==5.12.0; sys_platform == "darwin" and platform_machine == "x86_64"
+
+# Virtual camera for video calls (Discord, Zoom, Teams, Google Meet, ...). Needs a driver:
+# Windows: install_virtual_camera.bat (or OBS Studio), macOS: OBS Studio 30+. Optional.
+# License: GPL-2.0 (the app only imports it when the virtual camera is switched on).
+pyvirtualcam==0.15.0
 
 # Optional: readable camera names on Windows (DirectShow). The app works without it.
 pygrabber==0.2; sys_platform == "win32"

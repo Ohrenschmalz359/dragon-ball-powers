@@ -1077,6 +1077,39 @@ def test_choose_camera_index_rules():
     assert camera.choose_camera_index(twins, s(index=1, name_hint="USB Cam")) == 1   # keep index
 
 
+@pytest.mark.parametrize("name, expected", [
+    ("OBS Virtual Camera", True), ("OBS-Camera", True), ("Unity Video Capture", True), ("Dragon Ball Powers", True),
+    ("ManyCam Virtual Webcam", True), ("HP 5MP Camera", False), ("NVIDIA Broadcast", False),
+    ("DroidCam Source 3", False), ("Logitech BRIO", False), ("Virtualis Cam", False), ("Camera 0", False),
+])
+def test_virtual_output_name_detection(name, expected):
+    assert camera._is_virtual_name(name) is expected
+
+
+def test_list_cameras_flags_virtual_outputs(world, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "win32")
+    install_fake_pygrabber(monkeypatch, ["OBS Virtual Camera", "HP 5MP Camera"])
+    assert camera.list_cameras() == [CameraInfo(0, "OBS Virtual Camera", "auto", False, True),
+                                     CameraInfo(1, "HP 5MP Camera", "auto", False, False)]
+
+
+def test_choose_camera_index_never_picks_a_virtual_output_by_itself():
+    # Installing OBS (for the video-call output) adds "OBS Virtual Camera", possibly at index 0.
+    def s(**kwargs) -> CameraSettings:
+        return CameraSettings(**kwargs)
+
+    cams = [CameraInfo(0, "OBS Virtual Camera", is_virtual=True), CameraInfo(1, "HP 5MP Camera"),
+            CameraInfo(2, "HP IR Camera", is_ir=True)]
+    assert camera.choose_camera_index(cams, s(index=0)) == 1                               # the webcam
+    assert camera.choose_camera_index(cams, s(index=0, name_hint="camera")) == 1           # webcam first
+    assert camera.choose_camera_index(cams, s(index=1, name_hint="OBS Virtual Camera")) == 0  # explicit
+    only_virtual = [CameraInfo(0, "OBS Virtual Camera", is_virtual=True)]
+    assert camera.choose_camera_index(only_virtual, s(index=0)) == camera.NO_CAMERA        # webcam unplugged
+    assert camera.choose_camera_index(only_virtual, s(index=0, name_hint="OBS Virtual Camera")) == 0  # picked
+    ir_and_virtual = [CameraInfo(0, "HP IR Camera", is_ir=True), CameraInfo(1, "OBS Virtual Camera", is_virtual=True)]
+    assert camera.choose_camera_index(ir_and_virtual, s(index=0)) == 0                     # as before for IR
+
+
 # -------------------------------------------------------------------- test pattern
 
 
