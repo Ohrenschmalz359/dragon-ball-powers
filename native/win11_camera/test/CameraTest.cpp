@@ -126,6 +126,8 @@ namespace
             printf("  the camera does not offer this format\n");
             return 1;
         }
+        CHECK(reader->SetStreamSelection((DWORD)MF_SOURCE_READER_ALL_STREAMS, FALSE));
+        CHECK(reader->SetStreamSelection((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, TRUE));
         CHECK(reader->SetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, nullptr, type.Get()));
         UINT32 width = 0, height = 0;
         CHECK(MFGetAttributeSize(type.Get(), MF_MT_FRAME_SIZE, &width, &height));
@@ -205,8 +207,7 @@ namespace
         ComPtr<IMFSourceReader> reader;
         CHECK(MFCreateSourceReaderFromMediaSource(source.Get(), nullptr, &reader));
         auto rc = ReadAndCheck(reader.Get(), subtype, writer, true, 90);
-        reader.Reset();
-        source->Shutdown();
+        reader.Reset();             // shuts the source down as well
         return rc;
     }
 
@@ -251,7 +252,6 @@ namespace
         FrameWriter writer;          // the frame server creates the memory once it streams
         auto rc = ReadAndCheck(reader.Get(), subtype, writer, false, 300);
         reader.Reset();
-        source->Shutdown();
         camera->ShutdownObject();
         return rc;
     }

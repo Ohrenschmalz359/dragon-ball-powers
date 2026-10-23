@@ -34,6 +34,7 @@ HRESULT MediaSource::Initialize(IMFAttributes* attributes)
         owners.push_back(descriptor);
     }
     RETURN_IF_FAILED(MFCreatePresentationDescriptor((DWORD)descriptors.size(), descriptors.data(), &_descriptor));
+    RETURN_IF_FAILED(_descriptor->SelectStream(0));     // like a real camera: video selected by default
     RETURN_IF_FAILED(MFCreateEventQueue(&_queue));
     return S_OK;
 }
