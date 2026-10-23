@@ -29,9 +29,9 @@ movements frame by frame.
    needed), then press **V** in the app ("VCAM LIVE" appears at the top) and choose
    **"Dragon Ball Powers"** as the camera in the call program. The others see you with
    the effects, without the HUD and the right way round. **WhatsApp:** the WhatsApp
-   Desktop app currently does not list virtual cameras; use **WhatsApp Web**
-   (web.whatsapp.com) in Edge or Chrome instead, or share the app window with the call's
-   screen sharing (`H` hides the HUD). None of this works on phones. Details:
+   Desktop app does not accept virtual cameras and WhatsApp Web has no calls; share the
+   app window with the call's screen sharing instead (`H` hides the HUD). None of this
+   works on phones. Details:
    [Video calls](#video-calls-discord-zoom-teams-google-meet-).
 6. **Problems?** `run.bat --check` checks Python, packages, models, OpenGL, cameras,
    audio and the virtual camera. The log is in `logs\dragon_ball_powers.log`.
@@ -322,7 +322,7 @@ run it again after updating an older copy of the project):
    | Microsoft Teams | Settings → Devices → Camera |
    | Google Meet and other browser calls | the meeting's camera setting (Chrome, Edge, Firefox, Safari) |
    | FaceTime | macOS: in FaceTime's *Video* menu. Windows: only through a FaceTime link in Chrome or Edge, choose the camera in the browser |
-   | WhatsApp | the WhatsApp Desktop app currently does not list virtual cameras: use **WhatsApp Web** (web.whatsapp.com) in a browser and pick the camera there, or share the app window with the call's screen sharing (press **H** to hide the HUD) |
+   | WhatsApp | WhatsApp does not support virtual cameras (the Desktop app does not list them, WhatsApp Web has no calls): start a video call in WhatsApp Desktop and share the app window with its **screen sharing** (press **H** to hide the HUD) |
    | OBS (streaming) | simply add a *Window Capture* of the app window instead |
 
 3. The others see 1280×720 at 30 fps (1920×1080 in the settings), **not mirrored** — like
