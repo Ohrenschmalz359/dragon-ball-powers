@@ -13,7 +13,8 @@ Frame pipeline (one ``render`` call)::
                    rings, beams, frontal beams, orbs, ribbons, arcs, sprites, radial flashes
     bloom       -> 13-tap downsample chain (+ very bright scene pixels), tent upsample
     composite   -> RGBA8 output: tone-mapped effects screen-blended over the camera,
-                   zoom punch + camera shake (with overscan), uniform flashes
+                   zoom punch + camera shake (with overscan), uniform flashes;
+                   mirrored horizontally when ``mirror_output`` (virtual camera)
     UI          -> premultiplied-alpha SDF shapes and cached text textures
     present     -> copy to the window (ctx.screen) unless offscreen
 
@@ -487,6 +488,7 @@ class GLRenderer(Renderer):
         self._quality = quality
         self._size = _sanitize_size(size)
         self._offscreen = bool(offscreen)
+        self.mirror_output = False
         self._info: dict[str, str] = {"renderer": self.name}
         self._warn = _RateLimitedLog()
         # GL objects (all None-safe so release() works after a failed constructor)
@@ -1591,7 +1593,9 @@ class GLRenderer(Renderer):
         self._scene_t.texture.use(0)
         self._fx_t.texture.use(1)
         self._bloom[0].texture.use(2)
-        p.set("u_uv_scale", (1.0 / zoom, 1.0 / zoom))
+        # A negative u scale mirrors camera, effects and bloom together; the UI pass below
+        # draws on top of the mirrored picture, so its text stays readable.
+        p.set("u_uv_scale", (-1.0 / zoom if self.mirror_output else 1.0 / zoom, 1.0 / zoom))
         p.set("u_uv_offset", (-su, sv))
         p.set("u_exposure", _clamp(_finite(fx.exposure, 1.0), 0.0, 16.0))
         bloom = (_clamp(_finite(fx.bloom, 1.0), 0.0, 8.0) * BLOOM_GAIN / max(1, len(self._bloom))

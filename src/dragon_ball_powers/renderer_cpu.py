@@ -1008,6 +1008,7 @@ class CpuRenderer(Renderer):
         self._settings = settings
         self._quality = quality
         self._size = (max(1, int(size[0])), max(1, int(size[1])))
+        self.mirror_output = False
         self._target: pygame.Surface | None = None
         self._target_is_display = False
         self._released = False
@@ -1158,6 +1159,8 @@ class CpuRenderer(Renderer):
             self._sparkles.clear()
         t3 = time.perf_counter()
         frame = self._post(frame, effects, view)
+        if self.mirror_output:
+            frame = cv2.flip(frame, 1)       # before the UI, so its text stays readable
         t4 = time.perf_counter()
         surface = self._present(frame, target)
         t5 = time.perf_counter()

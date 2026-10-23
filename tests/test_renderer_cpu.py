@@ -55,10 +55,10 @@ def grey(level: int = 60) -> np.ndarray:
 
 
 def render(r: CpuRenderer, image: np.ndarray | None, rl: RenderList | None = None,
-           ui: UIDrawList | None = None, mode: str = "cover") -> np.ndarray:
+           ui: UIDrawList | None = None, mode: str = "cover", image_id: int = 1) -> np.ndarray:
     size = (image.shape[1], image.shape[0]) if image is not None else (W, H)
     view = compute_view_transform(size[0], size[1], W, H, mode)
-    r.render(SceneInput(image, 1, size, 1.0), rl or RenderList(), ui or UIDrawList(), view)
+    r.render(SceneInput(image, image_id, size, 1.0), rl or RenderList(), ui or UIDrawList(), view)
     return r.read_pixels()
 
 
@@ -125,6 +125,20 @@ def test_aura_glows_around_a_mask(renderer):
     base = render(renderer, grey(40))
     out = render(renderer, grey(40), rl)
     assert lum(out) > lum(base) + 0.5
+
+
+def test_mirror_output_flips_the_picture_but_not_the_ui(renderer):
+    rng = np.random.default_rng(2)
+    img = rng.integers(0, 256, (H, W, 3), dtype=np.uint8)
+    normal = render(renderer, img)
+    renderer.mirror_output = True
+    mirrored = render(renderer, img)
+    assert np.array_equal(mirrored, normal[:, ::-1])
+    ui = UIDrawList([UIRect(10, 10, 60, 30, (1.0, 0.0, 0.0, 1.0))])
+    base = render(renderer, grey(30), image_id=2)                 # a new image: no cached layer
+    out = render(renderer, grey(30), ui=ui, image_id=2)
+    assert base[25, 40, 0] < 80 and out[25, 40, 0] > 200          # the UI is drawn ...
+    assert np.array_equal(out[25, W - 40], base[25, W - 40])      # ... where it was drawn, unmirrored
 
 
 def test_ui_text_and_rect_are_drawn(renderer):

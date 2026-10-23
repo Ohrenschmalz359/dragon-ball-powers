@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import math
+import sys
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -81,7 +82,7 @@ SETTINGS_WIDTH = 430.0          # settings panel width at u = 1
 OVER_9000 = 9000
 ALPHA_LEVELS = 24               # quantisation of animated alpha (renderer cache friendly)
 
-HELP_TEXT = ("SPACE charge/fire · 1-3 abilities · 4 aura · F fullscreen · C calibrate · "
+HELP_TEXT = ("SPACE charge/fire · 1-3 abilities · 4 aura · V video calls · F fullscreen · C calibrate · "
              "TAB settings · D debug · H hide HUD · ESC exit")
 
 # ---------------------------------------------------------------------- colours
@@ -117,6 +118,7 @@ ABILITY_LABELS: dict[str, tuple[str, str]] = {
 }
 RESOLUTIONS: tuple[tuple[int, int], ...] = ((640, 480), (1280, 720), (1920, 1080))
 CAMERA_FPS_CHOICES: tuple[int, ...] = (30, 60)
+VIRTUAL_CAMERA_RESOLUTIONS: tuple[tuple[int, int], ...] = ((1280, 720), (1920, 1080))
 #: Display labels (full, short) for string choices; unknown choices fall back to upper case.
 CHOICE_LABELS: dict[str, dict[str, tuple[str, str]]] = {
     "effects.quality": {"auto": ("AUTO", "AUTO"), "low": ("LOW", "LOW"), "medium": ("MEDIUM", "MED"),
@@ -627,6 +629,35 @@ def _hands_present(body: Any) -> int:
     return sum(1 for side in ("left", "right") if getattr(getattr(body, side, None), "present", False))
 
 
+def _virtual_camera_state(status: Any) -> str:
+    """The virtual camera state value ("off", "starting", "running", "error")."""
+    state = getattr(status, "state", None)
+    return str(getattr(state, "value", state) or "off").strip().lower()
+
+
+def _virtual_camera_text(status: Any) -> str:
+    """One-line explanation / status of the video-call output for the settings panel."""
+    state = _virtual_camera_state(status)
+    if state == "running":
+        device = _clean(getattr(status, "device", "")) or "the virtual camera"
+        res = getattr(status, "resolution", (0, 0)) or (0, 0)
+        fps = _finite(getattr(status, "fps", 0.0))
+        size = f" · {int(res[0])}×{int(res[1])} @ {fps:.0f} fps" if res[0] and res[1] else ""
+        return f"Live: '{device}'{size}. Choose it as the camera in your call app."
+    if state == "starting":
+        return "Starting the virtual camera…"
+    if state == "error":
+        return _clean(getattr(status, "error", "")) or "The virtual camera failed."
+    if sys.platform == "darwin":
+        need = "needs OBS Studio 30+, see README"
+    elif sys.platform == "win32":
+        need = "run install_virtual_camera.bat once, or install OBS Studio"
+    else:
+        need = "needs v4l2loopback"
+    return ("Show the effects in Discord, Zoom, Teams, Google Meet…: switch on, then pick the virtual "
+            f"camera there ({need}).")
+
+
 def _phase_name(phase: Any) -> str:
     """Normalise an AttackPhase (enum or string) to its lower-case value."""
     if isinstance(phase, AttackPhase):
@@ -690,6 +721,7 @@ class UIController:
         self._settings = settings
         self._fonts = fonts
         self._p = _Painter(fonts)
+        self._overlay_painter = _Painter(fonts)     # virtual camera overlay (own command list)
         self._widgets: list[UIWidget] = []
         self._reg: list[UIWidget] = []
         self._pointer: tuple[float, float] | None = None
@@ -930,6 +962,26 @@ class UIController:
             self._panel_rect = None
             return UIDrawList()
 
+    def build_overlay(self, ctx: UIContext) -> UIDrawList:
+        """Draw commands for the virtual camera picture: only the big callout, laid out for
+        ``ctx.window_size`` (no HUD, no widgets; the interactive state is not touched)."""
+        try:
+            w = max(1, int(_finite(ctx.window_size[0], 1.0)))
+            h = max(1, int(_finite(ctx.window_size[1], 1.0)))
+            u = _ui_scale(w, h)
+            settings = ctx.settings if isinstance(ctx.settings, Settings) else self._settings
+            palette = get_palette(settings.effects.energy_color)
+            p = self._overlay_painter
+            p.begin(u)
+            f = _Frame(ctx=ctx, s=settings, pal=palette, accent=palette.ui, now=_finite(ctx.now), w=w, h=h, u=u,
+                       x0=0.0, x1=float(w), m=p.px(20.0), fullscreen=True,
+                       camera_state=_camera_state(ctx.camera_status), camera_live=True)
+            self._build_callout(f, p)
+            return UIDrawList(p.cmds)
+        except Exception:  # noqa: BLE001 - the video-call picture is drawn without callout then
+            self._report("overlay", "Building the virtual camera overlay failed")
+            return UIDrawList()
+
     def _build(self, ctx: UIContext) -> UIDrawList:
         previous = self._now
         now = _finite(ctx.now, previous if previous is not None else 0.0)
@@ -1002,6 +1054,15 @@ class UIController:
         if not f.fullscreen:
             left_x1, b = self._build_identity(f, right_x0 - self._p.px(16.0))
             bottom = max(bottom, b)
+        else:
+            # Cinematic mode drops the status chips, but "sent to other programs" stays visible.
+            for label, value, rgb in self._status_chips(f):
+                if label == "VCAM":
+                    p = self._p
+                    fitted, w = self._chip_size(label, value, p.px(240.0))
+                    h = p.px(30.0)
+                    self._chip(f, f.x0 + f.m, f.m, w, h, label, fitted, rgb)
+                    left_x1, bottom = max(left_x1, f.x0 + f.m + w), max(bottom, f.m + h)
         return left_x1, right_x0, bottom
 
     def _build_stats(self, f: _Frame) -> tuple[float, float]:
@@ -1081,7 +1142,11 @@ class UIController:
         else:
             hands_rgb = GREEN if hands >= 2 else AMBER if hands == 1 else RED
             body_rgb, body_value = (GREEN, "OK") if tracked else (RED, "NONE")
-        return [("CAMERA", cam_value, cam_rgb), ("HANDS", f"{hands}/2", hands_rgb), ("BODY", body_value, body_rgb)]
+        chips = [("CAMERA", cam_value, cam_rgb), ("HANDS", f"{hands}/2", hands_rgb), ("BODY", body_value, body_rgb)]
+        vcam = _virtual_camera_state(ctx.virtual_camera)
+        if vcam in ("running", "starting"):       # failures are reported by a toast + settings
+            chips.append(("VCAM", "LIVE" if vcam == "running" else "STARTING", GREEN if vcam == "running" else AMBER))
+        return chips
 
     def _chip_size(self, label: str, value: str, max_w: float) -> tuple[str, float]:
         p = self._p
@@ -1437,9 +1502,10 @@ class UIController:
 
     # -------------------------------------------------------------- callout
 
-    def _build_callout(self, f: _Frame) -> None:
+    def _build_callout(self, f: _Frame, p: _Painter | None = None) -> None:
         """The big anime shout ("KA... ME... HA...") in the upper third."""
-        a, p = f.ctx.ability, self._p
+        a = f.ctx.ability
+        p = p if p is not None else self._p
         text = _clean(getattr(a, "callout", None))
         k = _quant(getattr(a, "callout_intensity", 0.0), 10)
         if not text or k <= 0.0:
@@ -1946,7 +2012,8 @@ class UIController:
                            else "No cameras found. Connect a webcam and press RESCAN.")
         for cam in cameras:
             self._radio_row(col, f"settings:camera:{cam.index}", _clean(cam.label) or f"Camera {cam.index}",
-                            cam.index == current, UIAction("select_camera", int(cam.index)), "IR" if cam.is_ir else "")
+                            cam.index == current, UIAction("select_camera", int(cam.index)),
+                            "IR" if cam.is_ir else "VIRTUAL" if getattr(cam, "is_virtual", False) else "")
         if f.camera_state == "running":
             res = getattr(status, "resolution", (0, 0)) or (0, 0)
             fps = _finite(getattr(status, "fps", 0.0))
@@ -1969,6 +2036,16 @@ class UIController:
                             [(str(v), str(v), v, UIAction("set_setting", ("camera.fps", v))) for v in CAMERA_FPS_CHOICES
                              if fc.get("min", 0) <= v <= fc.get("max", 1 << 30)], s.camera.fps)
         self._setting_toggle(col, "camera.mirror", "Mirror image")
+        # VIDEO CALLS (virtual camera output)
+        self._section(col, "VIDEO CALLS")
+        vcam = s.virtual_camera
+        self._toggle_row(col, "settings:virtual_camera", "Virtual camera", bool(vcam.enabled),
+                         UIAction("toggle_virtual_camera"))
+        self._info_row(col, _virtual_camera_text(ctx.virtual_camera))
+        self._segmented_row(col, "settings:virtual_camera.resolution", "Call resolution",
+                            [(f"{w}×{h}", f"{w}×{h}", (w, h), UIAction("set_virtual_camera_resolution", (w, h)))
+                             for w, h in VIRTUAL_CAMERA_RESOLUTIONS], (vcam.width, vcam.height))
+        self._setting_toggle(col, "virtual_camera.mirror", "Mirrored picture in calls")
         # GESTURES
         self._section(col, "GESTURES")
         for dotted in ("gestures.sensitivity", "gestures.min_charge_time", "gestures.cooldown_time"):

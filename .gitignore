@@ -34,3 +34,8 @@ assets/models/*.task
 Thumbs.db
 desktop.ini
 .idea/
+
+# Windows virtual camera driver downloaded by install_virtual_camera.bat
+virtualcam/
+# setup.sh staging folder
+.python.new/

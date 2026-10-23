@@ -137,6 +137,23 @@ def test_read_pixels_shape_dtype_and_orientation(make):
     assert tuple(out[H - 3, W // 2]) == (0, 0, 255)
 
 
+def test_mirror_output_flips_picture_and_effects_but_not_the_ui(make):
+    r = make()
+    rng = np.random.default_rng(3)
+    img = rng.integers(0, 256, (H, W, 3), dtype=np.uint8)
+    rl = RenderList()
+    rl.orbs.append(Orb((60.0, 90.0), 18.0, BLUE, intensity=1.5, charge=0.8))
+    normal = render(r, img, rl, t=2.0, image_id=7)
+    r.mirror_output = True
+    mirrored = render(r, img, rl, t=2.0, image_id=7)
+    assert np.abs(mirrored.astype(int) - normal[:, ::-1].astype(int)).max() <= 3
+    assert lum(mirrored[60:120, 240:300]) > lum(mirrored[60:120, 20:80])     # the orb moved to the right
+    ui = UIDrawList([UIRect(10, 10, 60, 30, (1.0, 0.0, 0.0, 1.0))])
+    out = render(r, grey(30), ui=ui)
+    assert out[25, 40, 0] > 200 and out[25, W - 40, 0] < 80                    # UI stays where it was drawn
+    assert_no_gl_error(r)
+
+
 # ------------------------------------------------------------------- identity
 
 

@@ -36,6 +36,7 @@ class AppArgs:
     smoke_test: float | None = None
     no_audio: bool = False
     debug: bool = False
+    virtual_camera: bool = False
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -51,6 +52,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
                         help="rendering backend (default: auto = OpenGL with CPU fallback)")
     parser.add_argument("--quality", choices=config.QUALITY_LEVELS, help="effects quality preset")
     parser.add_argument("--no-audio", action="store_true", help="disable sound")
+    parser.add_argument("--virtual-camera", action="store_true",
+                        help="send the picture to video-call apps as a webcam (needs OBS Studio installed)")
     parser.add_argument("--debug", action="store_true", help="debug logging and the landmark overlay")
     parser.add_argument("--log-level", default=None, choices=("DEBUG", "INFO", "WARNING", "ERROR"),
                         help="console log level (default INFO, DEBUG with --debug)")
@@ -151,7 +154,7 @@ def _verify_models() -> list[tuple[str, bool | None, str]]:
             else:
                 essential = model.file in ESSENTIAL_MODELS
                 results.append((model.file, False if essential else None,
-                                f"{check.detail} - run setup.bat (or scripts\\download_models.py)"))
+                                f"{check.detail} - run {config.SETUP_SCRIPT} (or scripts/download_models.py)"))
         return results
     except Exception as exc:  # noqa: BLE001 - fall back to a simple presence check
         log.debug("Model manifest check unavailable (%s); checking presence only", exc)
@@ -161,12 +164,12 @@ def _verify_models() -> list[tuple[str, bool | None, str]]:
             results.append((name, True, f"{path.stat().st_size / 1e6:.1f} MB"))
         else:
             results.append((name, False if name in ESSENTIAL_MODELS else None,
-                            "missing - run setup.bat (or scripts\\download_models.py)"))
+                            f"missing - run {config.SETUP_SCRIPT} (or scripts/download_models.py)"))
     return results
 
 
 def run_check() -> int:
-    """Environment self-test used by setup.bat. Returns 0 when the app can run."""
+    """Environment self-test used by setup.bat / setup.sh. Returns 0 when the app can run."""
     print(f"{APP_NAME} {__version__} - self-check")
     print(f"  Project: {config.PROJECT_ROOT}")
     failures = 0
@@ -196,7 +199,9 @@ def run_check() -> int:
 
     import importlib.util
 
-    if importlib.util.find_spec("pygrabber") is not None:
+    if sys.platform != "win32":
+        pass                                   # pygrabber reads DirectShow names: Windows only
+    elif importlib.util.find_spec("pygrabber") is not None:
         report("pygrabber (camera names)", True)
     else:
         report("pygrabber (camera names)", None, "not installed - cameras are listed as 'Camera N'")
@@ -246,7 +251,8 @@ def run_check() -> int:
 
         cameras = list_cameras()
         if cameras:
-            names = ", ".join(f"{c.index}: {c.name}{' (IR)' if c.is_ir else ''}" for c in cameras)
+            names = ", ".join(f"{c.index}: {c.name}{' (IR)' if c.is_ir else ' (virtual)' if c.is_virtual else ''}"
+                              for c in cameras)
             report("Cameras", True, f"{len(cameras)} found - {names}")
         else:
             report("Cameras", None, "none found (connect a webcam; keyboard test controls still work)")
@@ -262,6 +268,14 @@ def run_check() -> int:
     except Exception as exc:  # noqa: BLE001
         report("Audio", None, f"no audio device ({exc}); the app runs without sound")
 
+    try:
+        from dragon_ball_powers.virtual_camera import probe
+
+        ok, detail = probe()
+        report("Virtual camera (video calls, optional)", True if ok else None, detail)
+    except Exception as exc:  # noqa: BLE001
+        report("Virtual camera (video calls, optional)", None, f"check failed: {exc}")
+
     verdict = "READY" if failures == 0 else "NOT READY"
     print(f"Result: {verdict} ({failures} problem(s), {warnings} warning(s))")
     return 0 if failures == 0 else 1
@@ -275,7 +289,9 @@ def run_list_cameras() -> int:
         print("No cameras found.")
         return 1
     for cam in cameras:
-        print(f"{cam.index}: {cam.name}{'  (infrared - not suitable)' if cam.is_ir else ''}")
+        note = "  (infrared - not suitable)" if cam.is_ir else "  (virtual camera output - not a webcam)" \
+            if cam.is_virtual else ""
+        print(f"{cam.index}: {cam.name}{note}")
     return 0
 
 
@@ -309,6 +325,7 @@ def main(argv: list[str] | None = None) -> int:
             smoke_test=ns.smoke_test,
             no_audio=ns.no_audio,
             debug=ns.debug,
+            virtual_camera=ns.virtual_camera,
         )
         return App(args, settings).run()
     except KeyboardInterrupt:

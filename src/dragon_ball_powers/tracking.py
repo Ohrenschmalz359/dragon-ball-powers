@@ -34,7 +34,7 @@ from typing import Any, Callable, Protocol, Sequence
 import cv2
 import numpy as np
 
-from dragon_ball_powers.config import MODELS_DIR, POSE_MODELS, TrackingSettings
+from dragon_ball_powers.config import MODELS_DIR, POSE_MODELS, SETUP_SCRIPT, TrackingSettings
 from dragon_ball_powers.datatypes import (
     PALM_INDICES,
     CameraFrame,
@@ -54,7 +54,7 @@ log = logging.getLogger(__name__)
 # ----------------------------------------------------------------------- constants
 
 HAND_MODEL_FILE = "hand_landmarker.task"
-SETUP_HINT = "Run setup.bat to download the models."
+SETUP_HINT = f"Run {SETUP_SCRIPT} to download the models."
 SIDES: tuple[str, str] = ("left", "right")
 
 #: Velocity decay (1/s) of a coasting hand. The extrapolated displacement after
@@ -155,7 +155,7 @@ def _load_mediapipe() -> _MediaPipe:
                 _mp_cache = _MediaPipe(mp, mp_tasks, vision)
         if _mp_cache is None:
             raise TrackingBackendError(f"MediaPipe is not available ({_mp_error}). "
-                                       "Run setup.bat to repair the installation.")
+                                       f"Run {SETUP_SCRIPT} to repair the installation.")
         return _mp_cache
 
 

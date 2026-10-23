@@ -16,6 +16,7 @@ import json
 import logging
 import math
 import os
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -39,6 +40,8 @@ MODELS_DIR = _env_path("DBP_MODELS_DIR", ASSETS_DIR / "models")
 FONTS_DIR = ASSETS_DIR / "fonts"
 CONFIG_DIR = _env_path("DBP_CONFIG_DIR", PROJECT_ROOT / "config")
 LOGS_DIR = _env_path("DBP_LOGS_DIR", PROJECT_ROOT / "logs")
+#: The one-time setup script of this platform (named in error messages).
+SETUP_SCRIPT = "setup.bat" if sys.platform == "win32" else "setup.sh"
 SETTINGS_FILE = "settings.json"
 CALIBRATION_FILE = "calibration.json"
 SETTINGS_VERSION = 1
@@ -51,6 +54,8 @@ ABILITY_IDS: tuple[str, ...] = ("ki_charge", "kamehameha", "energy_burst")
 POSE_MODELS: tuple[str, ...] = ("lite", "full", "heavy")
 CAMERA_BACKENDS: tuple[str, ...] = ("auto", "dshow", "msmf", "any")
 FIT_MODES: tuple[str, ...] = ("cover", "contain")
+# pyvirtualcam backends: OBS Virtual Camera (Windows/macOS), Unity Capture (Windows), Linux.
+VIRTUAL_CAMERA_BACKENDS: tuple[str, ...] = ("auto", "obs", "unitycapture", "v4l2loopback")
 
 
 def _range(lo: float, hi: float) -> dict[str, float]:
@@ -168,6 +173,23 @@ class AudioSettings:
     volume: float = field(default=0.7, metadata=_range(0.0, 1.0))
 
 
+@dataclass
+class VirtualCameraSettings:
+    # Offer the picture (camera + effects + callouts, no HUD) to video-call apps as a
+    # webcam. Saved, so the virtual camera starts with the app once switched on.
+    enabled: bool = False
+    width: int = field(default=1280, metadata=_range(320, 1920))
+    height: int = field(default=720, metadata=_range(240, 1080))
+    fps: int = field(default=30, metadata=_range(10, 60))
+    # "auto" tries every virtual camera driver pyvirtualcam knows (OBS first).
+    backend: str = field(default="auto", metadata=_choices(*VIRTUAL_CAMERA_BACKENDS))
+    # Device name for drivers with several devices (Unity Capture, v4l2loopback). Empty = first free.
+    device: str = ""
+    # False: the call sees you the right way round, like through a normal webcam (call apps
+    # mirror only your own preview). True: send the mirrored picture of the app window.
+    mirror: bool = False
+
+
 SECTION_TYPES: dict[str, type] = {
     "camera": CameraSettings,
     "tracking": TrackingSettings,
@@ -176,6 +198,7 @@ SECTION_TYPES: dict[str, type] = {
     "abilities": AbilitySettings,
     "ui": UISettings,
     "audio": AudioSettings,
+    "virtual_camera": VirtualCameraSettings,
 }
 
 
@@ -188,6 +211,7 @@ class Settings:
     abilities: AbilitySettings = field(default_factory=AbilitySettings)
     ui: UISettings = field(default_factory=UISettings)
     audio: AudioSettings = field(default_factory=AudioSettings)
+    virtual_camera: VirtualCameraSettings = field(default_factory=VirtualCameraSettings)
 
     def to_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {"version": SETTINGS_VERSION}
@@ -219,6 +243,10 @@ class Settings:
         e = self.effects
         if e.orb_max_radius < e.orb_min_radius:
             e.orb_max_radius = e.orb_min_radius
+        v = self.virtual_camera
+        # Virtual cameras transport YUV 4:2:0 (NV12): both dimensions must be even.
+        v.width -= v.width % 2
+        v.height -= v.height % 2
 
 
 # ----------------------------------------------------------------- (de)serialising

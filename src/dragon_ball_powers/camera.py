@@ -59,6 +59,7 @@ from dragon_ball_powers.datatypes import CameraFrame, CameraInfo, CameraState, C
 log = logging.getLogger(__name__)
 
 __all__ = [
+    "NO_CAMERA",
     "SYNTHETIC_BACKEND",
     "TEST_PATTERN_NAME",
     "CameraManager",
@@ -71,9 +72,15 @@ __all__ = [
 #: ``CameraStatus.name`` / ``CameraStatus.backend`` of the :class:`SyntheticCamera`.
 TEST_PATTERN_NAME = "Test pattern"
 SYNTHETIC_BACKEND = "synthetic"
+#: :func:`choose_camera_index` result when there is nothing suitable to open automatically.
+NO_CAMERA = -1
 
 _BACKEND_NAMES: tuple[str, ...] = ("auto", "dshow", "msmf", "any")
 _IR_NAME = re.compile(r"\bIR\b", re.IGNORECASE)
+# Virtual camera outputs: OBS, Unity Capture - also as "Dragon Ball Powers", the device
+# install_virtual_camera.bat registers for this app -, ManyCam ...
+_VIRTUAL_NAME = re.compile(r"\bvirtual\b|\bobs[- ]cam(era)?\b|unity video capture|dragon ball powers",
+                           re.IGNORECASE)
 _GENERIC_NAME = re.compile(r"Camera \d+")
 
 _FPS_SMOOTHING = 0.1             # EMA factor for the measured frame interval
@@ -148,6 +155,16 @@ def _is_ir_name(name: str) -> bool:
     return bool(_IR_NAME.search(name)) or "infrared" in lowered or "infrarot" in lowered
 
 
+def _is_virtual_name(name: str) -> bool:
+    """Virtual camera outputs show another program's picture (or this app's own), not you."""
+    return bool(_VIRTUAL_NAME.search(name))
+
+
+def _usable(camera: CameraInfo) -> bool:
+    """A real colour webcam: neither infrared nor a virtual camera output."""
+    return not camera.is_ir and not camera.is_virtual
+
+
 def _is_named(name: str) -> bool:
     """True for a real device name (not empty and not a generic "Camera N")."""
     return bool(name) and _GENERIC_NAME.fullmatch(name) is None
@@ -164,6 +181,10 @@ def _access_hint() -> str:
         return ("Close other apps that use the camera (Teams, Zoom, OBS, browser) and allow camera "
                 "access in Windows Settings > Privacy & security > Camera > Let desktop apps "
                 "access your camera")
+    if sys.platform == "darwin":
+        return ("Close other apps that use the camera and allow camera access for Terminal (or the app "
+                "you started from) in System Settings > Privacy & Security > Camera, then start the "
+                "camera again")
     return ("Close other apps that use the camera and make sure this user is allowed to access "
             "the camera device")
 
@@ -393,7 +414,7 @@ def _probe_cameras(max_devices: int, backend: str) -> list[CameraInfo]:
                 # Opened by this process right now: a second open would fail or disturb
                 # the running stream, and the device certainly exists.
                 name = in_use or f"Camera {index}"
-                found.append(CameraInfo(index, name, backend, _is_ir_name(name)))
+                found.append(CameraInfo(index, name, backend, _is_ir_name(name), _is_virtual_name(name)))
                 misses = 0
                 continue
             if _probe_index(index, api):
@@ -428,7 +449,7 @@ def list_cameras(max_devices: int = 8, backend: str = "auto") -> list[CameraInfo
         if _is_windows() and backend_id(name) == int(cv2.CAP_DSHOW):
             names = _dshow_device_names()
             if names is not None:
-                cameras = [CameraInfo(i, n or f"Camera {i}", name, _is_ir_name(n))
+                cameras = [CameraInfo(i, n or f"Camera {i}", name, _is_ir_name(n), _is_virtual_name(n))
                            for i, n in enumerate(names)]
                 log.info("DirectShow cameras: %s", ", ".join(c.label for c in cameras) or "none")
                 return cameras
@@ -445,10 +466,15 @@ def choose_camera_index(cameras: list[CameraInfo], settings: CameraSettings) -> 
     """Pick the camera index to open from an enumeration result.
 
     1. ``settings.name_hint`` re-finds a device by name (case-insensitive substring;
-       exact names win, colour cameras before IR, the configured index on ties).
-    2. The configured ``settings.index`` when it is listed and not an IR camera.
-    3. The first colour camera when the configured index is an IR camera.
-    4. Otherwise ``settings.index`` (the list may be incomplete, e.g. a busy device).
+       exact names win, real webcams before virtual outputs before IR, the configured
+       index on ties). A device the user picked by name is used even if it is virtual.
+    2. The configured ``settings.index`` when it is listed and a real colour webcam.
+    3. The first real colour webcam when the configured index is an IR camera or a
+       virtual camera output (e.g. "OBS Virtual Camera", which this app may send to).
+    4. :data:`NO_CAMERA` when the configured device is a virtual output and no webcam is
+       listed: opening it would show another program's picture - or this app's own output
+       in a feedback loop - instead of the user.
+    5. Otherwise ``settings.index`` (the list may be incomplete, e.g. a busy device).
     """
     if not cameras:
         return settings.index
@@ -458,7 +484,7 @@ def choose_camera_index(cameras: list[CameraInfo], settings: CameraSettings) -> 
         if matches:
             exact = [c for c in matches if c.name.strip().lower() == hint]
             pool = exact or matches
-            candidates = [c for c in pool if not c.is_ir] or pool
+            candidates = [c for c in pool if _usable(c)] or [c for c in pool if not c.is_ir] or pool
             chosen = next((c for c in candidates if c.index == settings.index), candidates[0])
             if chosen.index != settings.index:
                 log.info("Camera %r found at index %d (configured index %d)",
@@ -467,14 +493,18 @@ def choose_camera_index(cameras: list[CameraInfo], settings: CameraSettings) -> 
         log.info("No camera matches %r; using the configured index %d", settings.name_hint,
                  settings.index)
     configured = next((c for c in cameras if c.index == settings.index), None)
-    if configured is not None and not configured.is_ir:
+    if configured is not None and _usable(configured):
         return settings.index
     if configured is not None:
-        colour = next((c for c in cameras if not c.is_ir), None)
-        if colour is not None:
-            log.info("Camera %s is an infrared camera; using %s instead", configured.label,
-                     colour.label)
-            return colour.index
+        webcam = next((c for c in cameras if _usable(c)), None)
+        if webcam is not None:
+            log.info("Camera %s is %s; using %s instead", configured.label,
+                     "an infrared camera" if configured.is_ir else "a virtual camera output", webcam.label)
+            return webcam.index
+        if configured.is_virtual:
+            log.warning("No webcam found, only virtual camera outputs (%s); none is opened automatically",
+                        ", ".join(c.label for c in cameras))
+            return NO_CAMERA
     return settings.index
 
 

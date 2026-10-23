@@ -37,11 +37,16 @@ public API, update this document.
  └────────────────────────────────────────┘       └──────────────┘
                      ▲
                      └── app.py main loop (pygame window, events, wiring)
+
+ video calls (optional): same SceneInput + RenderList ──▶ second, offscreen renderer
+ (call resolution, mirror_output, callout-only UI) ──▶ virtual_camera.py ──▶ pyvirtualcam
+ device ("OBS Virtual Camera") ──▶ Discord / Zoom / Teams / browser calls (Meet, FaceTime links)
 ```
 
 Threads: **camera capture thread** → **tracker thread** (uses two inference worker
 threads so hand and pose models run in parallel; MediaPipe releases the GIL) →
-**main thread** (events, gestures, abilities, effects, rendering at display rate).
+**main thread** (events, gestures, abilities, effects, rendering at display rate) →
+optional **virtual camera sender thread** (opens the device, sends/repeats pictures).
 Only immutable snapshots (`CameraFrame`, `TrackingFrame`, status dataclasses) cross
 thread boundaries; each producer guards its "latest" slot with a lock.
 
@@ -50,7 +55,7 @@ thread boundaries; each producer guards its "latest" slot with a lock.
 | File | Contents |
 |------|----------|
 | `config.py` | `Settings` sections, load/save/validate, `Calibration`, project paths (`MODELS_DIR`, `FONTS_DIR`, `CONFIG_DIR`, `LOGS_DIR`) |
-| `datatypes.py` | camera/tracking/gesture/HUD dataclasses, landmark index enums |
+| `datatypes.py` | camera/tracking/gesture/HUD/virtual-camera status dataclasses, landmark index enums |
 | `primitives.py` | `RenderList` effect primitives, palettes, quality presets, UI draw commands, `ViewTransform`, `SceneInput` |
 | `interfaces.py` | `Renderer` ABC, `AudioSink` protocol + `NullAudio`, `SOUND_NAMES`, `FrameSource`, `UIAction`, `UIContext` |
 | `state_machine.py` | `AttackStateMachine` (IDLE → PREPARING → CHARGING → FIRING → COOLDOWN) |
@@ -90,7 +95,10 @@ thread boundaries; each producer guards its "latest" slot with a lock.
 ## 4. Development & test environment
 
 * Runtime target: Windows 10/11, Python 3.12 venv at `<root>\.venv` (created by
-  `setup.bat`), launched with `run.bat`.
+  `setup.bat`), launched with `run.bat`. macOS 11+ and Linux use `setup.sh` / `run.sh` (bash 3.2
+  compatible; same steps, private python-build-standalone copy in `.python/` when no
+  Python 3.11/3.12 is installed). Intel Macs get jax/jaxlib 0.4.38 and moderngl 5.12
+  through environment markers in requirements.txt (no newer Intel-Mac wheels).
 * The code also runs on Linux (including WSL2) with the same pinned packages
   (mediapipe 0.10.21, numpy 1.26.4, opencv-contrib-python 4.11.0.86, pygame-ce 2.5.8,
   moderngl 5.13.0): `python -m venv .venv-linux && .venv-linux/bin/pip install -r requirements-dev.txt`.
@@ -281,6 +289,10 @@ def create_renderer(kind: str, size, quality, fonts, settings=None, window_has_g
 aura → effects (additive HDR) → bloom → composite (shake, zoom, refraction, flash,
 tone mapping) → UI. With an empty `RenderList` the camera image must appear
 unchanged (identity grade). `read_pixels()` returns (H, W, 3) RGB uint8 top-down.
+`mirror_output = True` mirrors the composited picture horizontally *before* the UI
+pass (GL: negative u scale in the composite; CPU: `cv2.flip`), so UI text stays
+readable; the virtual camera uses it to undo the camera mirroring. Several renderers
+may share one ModernGL context (the app's virtual camera renderer shares the window's).
 
 ### 5.7 ui.py — HUD, settings panel, debug overlay
 
@@ -293,7 +305,11 @@ class UIController:
     def wants_mouse(self) -> bool
     def notify(self, text: str, level: str = "info", duration: float = 3.0) -> None
     def build(self, ctx: UIContext) -> UIDrawList
+    def build_overlay(self, ctx: UIContext) -> UIDrawList   # callout only, for the virtual camera
 ```
+`UIContext.virtual_camera` (a `VirtualCameraStatus` or None) drives the "VCAM" chip and
+the *Video calls* settings section; the UI requests `toggle_virtual_camera` and
+`set_virtual_camera_resolution` actions.
 
 ### 5.8 audio.py — procedural sound
 
@@ -313,7 +329,52 @@ class AudioEngine:                      # implements AudioSink
 
 CLI: `--camera N`, `--fullscreen/--windowed`, `--renderer auto|gl|cpu`,
 `--quality`, `--test-pattern`, `--smoke-test SECONDS`, `--check`, `--list-cameras`,
-`--debug`, `--log-level`. Logs go to `logs/dragon_ball_powers.log` (rotating).
+`--virtual-camera`, `--debug`, `--log-level`. Logs go to `logs/dragon_ball_powers.log`
+(rotating). With `--smoke-test` and `--virtual-camera` the run only passes when pictures
+reached the virtual camera (the script also switches it off and on once).
+
+### 5.10 virtual_camera.py — video-call output
+
+```python
+class VirtualCamera:
+    def __init__(self, settings: VirtualCameraSettings, camera_factory=None) -> None
+    def start(self, settings: VirtualCameraSettings | None = None) -> None  # non-blocking; with settings: restart
+    def stop(self) -> None                       # idempotent, joins the sender, closes the device
+    def frame_due(self, now: float) -> bool      # pacing for the main loop (fps, no catch-up bursts)
+    def submit(self, frame: np.ndarray) -> None  # (H, W, 3) uint8 RGB, never blocks
+    size: tuple[int, int]; settings: VirtualCameraSettings
+    @property status -> VirtualCameraStatus      # OFF | STARTING | RUNNING | ERROR (+ actionable error text)
+def probe(settings=None, camera_factory=None) -> tuple[bool, str]   # used by --check
+def friendly_error(exc) -> str
+```
+* Device: `pyvirtualcam.Camera(width, height, fps, backend=None|name, device=None|name)`,
+  imported lazily (optional dependency). Windows: `install_virtual_camera.bat` registers
+  Unity Capture's DirectShow filter (pinned commit, SHA256-verified, one UAC prompt for
+  regsvr32 only) as the device "Dragon Ball Powers"; OBS Studio's "OBS Virtual Camera" also
+  works (one sender at a time). macOS: OBS 30+ camera extension. Linux: v4l2loopback.
+* The sender thread sends black first, then the newest picture; when none arrives for 2.5
+  frame intervals it repeats the last one (steady stream for call apps). Wrong sizes are
+  scaled, unusable pictures skipped. Open failures → `ERROR` with a hint (install OBS /
+  device busy / device name / run setup.bat / Visual C++ runtime / modprobe), logged
+  without traceback. A *busy* device is retried for `OPEN_RETRY_SECONDS` (1.5 s): after a
+  restart a call app holds the previous sender's OBS shared memory until its next frame
+  tick. With backend `auto` a restart first re-opens the driver of the last run, so a
+  briefly busy OBS camera cannot silently fall through to another driver.
+* App: `V` / settings toggle; every start announces its outcome; on `ERROR` the app shows
+  the hint and switches `virtual_camera.enabled` off (no retry at every start). A running
+  output is re-opened only when `device_settings()` (size, fps, backend, device) change,
+  never for `mirror` (read every frame). `--virtual-camera` applies to one run: the saved
+  choice is written back unless the user switches the output. After `pygame.display.flip()`
+  a second renderer of the window's backend draws the picture at `size` (fit mode `cover`,
+  callout-only overlay, `mirror_output = (camera.mirror and not test_pattern) !=
+  virtual_camera.mirror`: calls see an unmirrored picture by default, like from a real
+  webcam; the test pattern is never mirrored). That renderer is kept while the output is off
+  (no shader-compile hitch when switching on again).
+* camera.py marks virtual camera outputs (`CameraInfo.is_virtual`: "OBS Virtual Camera",
+  Unity Capture, names with "virtual") and, like IR cameras, never selects them
+  automatically - the app must not capture the device it sends to. When only virtual
+  outputs are listed, `choose_camera_index` returns `NO_CAMERA` (-1): the app keeps the
+  camera off and asks for a webcam (a device picked by name is still opened).
 
 ## 6. Visual design bible
 
@@ -386,6 +447,8 @@ Cross-module behaviour is covered by `tests/test_integration.py` (synthetic moti
 `tests/motion_synth.py` and real MediaPipe output on a sample photo pushed through
 gestures → abilities → effects → renderer) and `tests/test_app_smoke.py` (the whole
 application loop, headless, with the generated test pattern and scripted key presses).
+`tests/test_virtual_camera.py` runs the app through `tests/fake_virtual_camera.py`, which
+replaces every pyvirtualcam backend with a fake driver (no real device is touched).
 
 ## 9. Implementation notes (as built)
 

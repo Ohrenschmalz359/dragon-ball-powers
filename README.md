@@ -22,10 +22,26 @@ movements frame by frame.
    Halten zum Aufladen, dann **beide Arme schnell nach vorne stoßen** → Kamehameha.
    Arme ruckartig auseinanderreißen → Energy Burst. Taste **4** → Aura.
 4. **Tastatur zum Testen:** `LEERTASTE` halten = aufladen, loslassen = feuern;
-   `1/2/3` Fähigkeit, `4` Aura, `F` Vollbild, `C` Kalibrieren, `TAB` Einstellungen,
-   `D` Debug-Overlay, `ESC` Vollbild verlassen / beenden.
-5. **Probleme?** `run.bat --check` prüft Python, Pakete, Modelle, OpenGL, Kameras und
-   Audio. Das Log liegt in `logs\dragon_ball_powers.log`.
+   `1/2/3` Fähigkeit, `4` Aura, `V` Videocalls, `F` Vollbild, `C` Kalibrieren,
+   `TAB` Einstellungen, `D` Debug-Overlay, `ESC` Vollbild verlassen / beenden.
+5. **Videocalls (Discord, Zoom, Teams, Google Meet …):** einmalig
+   `install_virtual_camera.bat` doppelklicken und die Admin-Abfrage bestätigen (kein OBS
+   nötig), dann in der App **V** drücken (oben erscheint „VCAM LIVE“) und im Call-Programm
+   **„Dragon Ball Powers“** als Kamera auswählen. Die anderen sehen dich mit den Effekten,
+   ohne HUD und seitenrichtig. **WhatsApp:** Die WhatsApp-Desktop-App zeigt virtuelle
+   Kameras derzeit nicht an. Nimm stattdessen **WhatsApp Web** (web.whatsapp.com) in Edge
+   oder Chrome, oder teile im Call per Bildschirmfreigabe das App-Fenster (`H` blendet das
+   HUD aus). Am Handy geht das alles nicht. Details:
+   [Video calls](#video-calls-discord-zoom-teams-google-meet-).
+6. **Probleme?** `run.bat --check` prüft Python, Pakete, Modelle, OpenGL, Kameras,
+   Audio und die virtuelle Kamera. Das Log liegt in `logs\dragon_ball_powers.log`.
+
+**Mac (und Linux):** Terminal im Projektordner öffnen, einmalig `bash setup.sh`, danach
+`bash run.sh` zum Starten. macOS fragt beim ersten Start, ob das Terminal die Kamera
+benutzen darf: erlauben, dann in der App START CAMERA drücken. Für Videocalls auf dem Mac
+wird [OBS Studio](https://obsproject.com) 30+ gebraucht (einmal „Start Virtual Camera“
+klicken, Systemerweiterung erlauben) – ohne OBS lässt Apple keine virtuelle Kamera zu.
+Dann geht es auch in **FaceTime**. Details: [macOS and Linux](#macos-and-linux).
 
 ---
 
@@ -35,10 +51,12 @@ movements frame by frame.
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Starting the app](#starting-the-app)
+- [macOS and Linux](#macos-and-linux)
 - [Opening the project in Visual Studio Code](#opening-the-project-in-visual-studio-code)
 - [Camera setup](#camera-setup)
 - [Gestures](#gestures)
 - [Keyboard controls](#keyboard-controls)
+- [Video calls (Discord, Zoom, Teams, Google Meet, …)](#video-calls-discord-zoom-teams-google-meet-)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
 - [Known limitations](#known-limitations)
@@ -107,9 +125,14 @@ movements frame by frame.
   tracked skeletons and live gesture scores (D), screenshots (F12).
 - Procedurally synthesised sound effects (charge hum, beam roar, explosions).
 
+**Video calls** (see [Video calls](#video-calls-discord-zoom-teams-google-meet-))
+- Virtual camera output (V): Discord, Zoom, Teams, Google Meet and other browser calls …
+  see you *with* the effects and callouts, without the HUD, the right way round.
+
 ## Requirements
 
-- Windows 10 or 11, 64-bit.
+- Windows 10 or 11 (64-bit), macOS 11 or newer (Apple Silicon or Intel), or Linux
+  (x86-64 / ARM64) — see [macOS and Linux](#macos-and-linux).
 - A webcam (720p or better recommended; 60 fps cameras feel even more responsive).
 - A GPU with OpenGL 3.3 (any NVIDIA/AMD/Intel GPU from the last ~10 years). An RTX-class
   GPU runs the "Ultra" preset easily; integrated graphics run "Medium"/"High".
@@ -118,6 +141,8 @@ movements frame by frame.
   (Python 3.13+ is not supported by the pinned MediaPipe version.)
 - Internet access once, during setup (≈ 400 MB of Python packages, 53 MB of models).
   The app itself runs offline.
+- Optional, for video calls: a virtual camera driver — on Windows `install_virtual_camera.bat`
+  (no OBS needed), on macOS OBS Studio 30+ (see [Video calls](#video-calls-discord-zoom-teams-google-meet-)).
 
 ## Installation
 
@@ -163,11 +188,36 @@ you can read the message. All arguments are passed through:
 | `--renderer auto\|gl\|cpu` | rendering backend (auto = OpenGL with CPU fallback) |
 | `--quality auto\|low\|medium\|high\|ultra` | effects quality |
 | `--no-audio` | no sound |
+| `--virtual-camera` | switch the video-call output on for this run (see [Video calls](#video-calls-discord-zoom-teams-google-meet-)) |
 | `--debug` | debug logging + landmark overlay |
-| `--check` | self-check of Python, packages, models (SHA-256), MediaPipe, OpenGL, cameras, audio |
+| `--check` | self-check of Python, packages, models (SHA-256), MediaPipe, OpenGL, cameras, audio, virtual camera |
 | `--list-cameras` | list cameras and exit |
 | `--test-pattern` | generated test image instead of the webcam (diagnostics only) |
 | `--smoke-test SECONDS` | automated self-test that drives every ability, then exits |
+
+## macOS and Linux
+
+The app runs on macOS 11+ (Apple Silicon and Intel) and on Linux with the same features.
+Instead of the `.bat` files use the shell scripts, in a terminal opened in the project folder:
+
+```sh
+bash setup.sh        # once: Python 3.12 (private copy in .python if needed), .venv, packages, models
+bash run.sh          # start the app; options as with run.bat, e.g. bash run.sh --fullscreen
+```
+
+- `setup.sh` uses an installed Python 3.11/3.12 (e.g. from python.org or Homebrew) or
+  downloads a private, checksum-verified copy into `.python/` — nothing is installed
+  system-wide. Options: `--dry-run`, `--force`, `--dev`, `--help`.
+- **Camera permission (macOS):** the first start asks whether Terminal may use the camera.
+  Allow it (System Settings → Privacy & Security → Camera), then press START CAMERA in the
+  app or start it again.
+- Cameras are listed as "Camera 0", "Camera 1" … (no device names); pick another one in
+  Tab → Camera if the wrong one opens.
+- Use **F** for fullscreen (macOS reserves F11).
+- Video calls: see [Video calls](#video-calls-discord-zoom-teams-google-meet-) (macOS needs
+  OBS Studio 30+ for the virtual camera; then it also works in FaceTime).
+- Not tested on a real Mac yet — if something fails, `bash run.sh --check` and
+  `logs/dragon_ball_powers.log` show the details.
 
 ## Opening the project in Visual Studio Code
 
@@ -230,6 +280,7 @@ Sensitivity can also be changed with `[` / `]` or in the settings panel.
 | **Space** | hold = charge, release = fire (Ki Charge / Kamehameha); press = Energy Burst |
 | **1** / **2** / **3** | select Ki Charge / Kamehameha / Energy Burst |
 | **4** | toggle Power Aura |
+| **V** | video-call output (virtual camera) on / off |
 | **← → ↑ ↓** | aim keyboard attacks; **0** = automatic aim (towards the camera) |
 | **F** or **F11** | fullscreen cinematic mode |
 | **C** | start / cancel calibration |
@@ -241,6 +292,59 @@ Sensitivity can also be changed with `[` / `]` or in the settings panel.
 | **Esc** | cancel calibration / close settings / leave fullscreen / quit |
 
 Keyboard attacks use exactly the same ability, effect and rendering code as gestures.
+
+## Video calls (Discord, Zoom, Teams, Google Meet, …)
+
+The app can be a **webcam for other programs**: your video call shows the camera picture
+with the energy effects and the big callouts (without the HUD). One integration works for
+the programs that accept virtual cameras — Discord, Zoom, Teams, browsers and most others.
+
+**One-time setup** (the Python part, `pyvirtualcam`, comes with `setup.bat` / `setup.sh`;
+run it again after updating an older copy of the project):
+
+| System | Driver for the virtual camera |
+|--------|-------------------------------|
+| **Windows** (no OBS needed) | double-click **`install_virtual_camera.bat`** once and confirm the administrator prompt. It downloads the small Unity Capture filter (MIT license, ~330 KB, checksum-verified) into `virtualcam\` and registers it as the camera **"Dragon Ball Powers"**. `install_virtual_camera.bat --uninstall` removes it (do that before moving or deleting the folder). Alternatively OBS Studio's "OBS Virtual Camera" works too. |
+| **macOS** | [OBS Studio](https://obsproject.com) 30 or newer: install it, open it, click **Start Virtual Camera** once and allow the system extension in System Settings (a restart may be needed), click Stop Virtual Camera and quit OBS. The camera is called **"OBS Virtual Camera"**; OBS does not need to run afterwards. Apple only allows virtual cameras as signed system extensions, so there is no OBS-free way on macOS. |
+| **Linux** | v4l2loopback: `sudo apt install v4l2loopback-dkms && sudo modprobe v4l2loopback devices=1` |
+
+**Use it:**
+
+1. Start the app and press **V** (or *Tab → Video calls → Virtual camera*). The HUD shows
+   **VCAM LIVE** (also in fullscreen). The choice is remembered for the next start.
+2. In the call program select **"Dragon Ball Powers"** (Windows driver from above) or
+   **"OBS Virtual Camera"** as the camera:
+
+   | Program | Where |
+   |---------|-------|
+   | Discord | User Settings → Voice & Video → Camera |
+   | Zoom | Settings → Video → Camera |
+   | Microsoft Teams | Settings → Devices → Camera |
+   | Google Meet and other browser calls | the meeting's camera setting (Chrome, Edge, Firefox, Safari) |
+   | FaceTime | macOS: in FaceTime's *Video* menu. Windows: only through a FaceTime link in Chrome or Edge, choose the camera in the browser |
+   | WhatsApp | the WhatsApp Desktop app currently does not list virtual cameras: use **WhatsApp Web** (web.whatsapp.com) in a browser and pick the camera there, or share the app window with the call's screen sharing (press **H** to hide the HUD) |
+   | OBS (streaming) | simply add a *Window Capture* of the app window instead |
+
+3. The others see 1280×720 at 30 fps (1920×1080 in the settings), **not mirrored** — like
+   through a normal webcam, so writing on your shirt is readable (call programs mirror only
+   your own preview). The callouts are readable either way. For the mirrored look switch on
+   *Tab → Mirrored picture in calls*.
+
+Good to know:
+
+- Only one program can send to a virtual camera at a time (e.g. OBS's own "Start Virtual
+  Camera" must be off while the app uses "OBS Virtual Camera").
+- The effect **sounds** play on your speakers; the others hear them only through your
+  microphone (not when you wear headphones).
+- **Phones** cannot use it: WhatsApp and FaceTime on a phone only use the phone's camera.
+- A program does not list the camera? Restart it after installing the driver. Some Store
+  apps only show real cameras: use the service in the browser, or share the app window
+  with screen sharing (press **H** to hide the HUD).
+- `--check` tests the virtual camera, `--virtual-camera` switches it on for this run, and
+  `--test-pattern --smoke-test 16 --virtual-camera` sends a test picture through it (exit
+  code 0 = it works) — with `run.bat` on Windows or `bash run.sh` on macOS / Linux.
+- `virtual_camera.backend` / `virtual_camera.device` in the settings file pick a specific
+  driver or device when several are installed.
 
 ## Configuration
 
@@ -257,6 +361,7 @@ file by hand is safe. Calibration results are stored in `config\calibration.json
 | `abilities` | `selected` (`kamehameha`), `aura_enabled`, `aura_auto` |
 | `ui` | `fullscreen`, `window_width`/`window_height`, `show_hud`, `show_debug`, `show_fps`, `fit_mode` (`cover`/`contain`), `vsync`, `max_fps` |
 | `audio` | `enabled`, `volume` |
+| `virtual_camera` | `enabled` (false), `width`/`height` (1280×720), `fps` (30), `backend` (`auto`/`obs`/`unitycapture`/`v4l2loopback`), `device`, `mirror` (false) |
 
 Delete `config\settings.json` to return to the defaults (or use *Reset to defaults*).
 
@@ -273,6 +378,14 @@ Delete `config\settings.json` to return to the defaults (or use *Reset to defaul
 | Low FPS | lower the quality (Tab → Effects), use `"pose_model": "lite"`, lower the camera resolution |
 | OpenGL errors / black window | `run.bat --renderer cpu`; update your GPU driver |
 | No sound | check the Windows output device; `audio.enabled` in the settings |
+| "No virtual camera driver found" | Windows: run `install_virtual_camera.bat` once (or install OBS Studio), then press V again |
+| "No virtual camera found" (macOS) | OBS Studio 30+: click Start Virtual Camera once, allow the system extension in System Settings, quit OBS, press V |
+| macOS: black picture / "not authorized" camera error | System Settings → Privacy & Security → Camera: allow Terminal, then START CAMERA in the app |
+| "The virtual camera is busy" | stop "Virtual Camera" in OBS if it runs, or switch the camera off and on in the call program, then press V |
+| The app shows the OBS logo instead of you | "OBS Virtual Camera" was picked as its input: choose your real webcam in Tab → Camera (virtual outputs are marked VIRTUAL and never opened automatically) |
+| "No webcam found, only virtual cameras" | connect your webcam, press RESCAN in Tab → Camera and pick it |
+| "pyvirtualcam package is missing" | run `setup.bat` again |
+| The call shows the OBS logo / a black picture | the app's virtual camera is off (press V) or the app is not running |
 | Anything else | `run.bat --check`, then look at `logs\dragon_ball_powers.log` |
 
 ## Known limitations
@@ -295,7 +408,9 @@ Delete `config\settings.json` to return to the defaults (or use *Reset to defaul
 
 Everything is processed locally. No images, video or landmarks leave your PC, nothing
 is written to disk except the settings, the calibration, the log file and screenshots
-you take yourself (F12). MediaPipe is pinned to **0.10.21** on purpose: newer
+you take yourself (F12). Only while you switch the virtual camera on (V) does the app
+offer its picture to other programs on your PC — like a webcam; what a call program
+does with it is up to that program. MediaPipe is pinned to **0.10.21** on purpose: newer
 releases (0.10.30+/1.x) ship a native library that uploads usage metrics to Google;
 0.10.21 does not contain that telemetry.
 
@@ -305,6 +420,8 @@ releases (0.10.30+/1.x) ship a native library that uploads usage metrics to Goog
 dragon-ball-powers\
 ├── run.bat                  start the app
 ├── setup.bat                one-time setup (Python, .venv, packages, models)
+├── install_virtual_camera.bat  optional: camera "Dragon Ball Powers" for video calls
+├── setup.sh / run.sh        the same for macOS and Linux (bash setup.sh, bash run.sh)
 ├── requirements.txt         pinned runtime packages (requirements-dev.txt adds pytest)
 ├── pyproject.toml           project metadata + pytest configuration
 ├── src\dragon_ball_powers\
@@ -324,6 +441,7 @@ dragon-ball-powers\
 │   ├── gl_shaders.py        GLSL shaders
 │   ├── renderer_cpu.py      NumPy/OpenCV fallback renderer
 │   ├── ui.py                HUD, settings panel, overlays
+│   ├── virtual_camera.py    video-call output (virtual webcam via pyvirtualcam)
 │   ├── audio.py             procedural sound effects
 │   ├── fonts.py             font loading (bundled fonts)
 │   ├── datatypes.py, interfaces.py, mathutil.py
@@ -406,6 +524,9 @@ Effect previews without a camera: `python scripts/render_preview.py` (writes PNG
 - Fonts: Bangers and Rajdhani, SIL Open Font License 1.1 (`assets/fonts/*-OFL.txt`).
 - MediaPipe models: Apache License 2.0 (Google), see `assets/models/README.md`.
 - Dependencies: MediaPipe (Apache 2.0), OpenCV (Apache 2.0), NumPy (BSD), pygame-ce
-  (LGPL), ModernGL (MIT).
+  (LGPL), ModernGL (MIT), pyvirtualcam (GPL-2.0; only imported when the virtual camera
+  is switched on — keep that in mind if you redistribute the app).
+- Windows virtual camera driver: the Unity Capture filter (MIT), downloaded by
+  `install_virtual_camera.bat` from github.com/schellingb/UnityCapture (not bundled).
 
 Dragon Ball is a trademark of its owners; this is an unofficial fan project.

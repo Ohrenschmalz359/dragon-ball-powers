@@ -19,6 +19,7 @@ from dragon_ball_powers.datatypes import (
     GestureSignals,
     TrackerStatus,
     TrackingFrame,
+    VirtualCameraStatus,
 )
 from dragon_ball_powers.primitives import QualityPreset, RenderList, SceneInput, UIDrawList, ViewTransform
 
@@ -87,6 +88,9 @@ class Renderer(abc.ABC):
     """A rendering backend. ``render`` draws one complete frame into its target."""
 
     name: str = "renderer"
+    #: Mirror the composited picture horizontally *before* the UI is drawn (so UI text
+    #: stays readable). The virtual camera output uses it to undo the camera mirroring.
+    mirror_output: bool = False
 
     @abc.abstractmethod
     def resize(self, width: int, height: int) -> None:
@@ -129,6 +133,8 @@ UI_ACTION_KINDS: tuple[str, ...] = (
     "toggle_fullscreen",  # value: None
     "toggle_settings",   # value: None
     "toggle_debug",      # value: None
+    "toggle_virtual_camera",  # value: None (video-call output on/off)
+    "set_virtual_camera_resolution",  # value: (width, height)
     "reset_settings",    # value: None
     "quit",              # value: None
 )
@@ -161,3 +167,4 @@ class UIContext:
     renderer_name: str = ""
     quality_name: str = ""
     fullscreen: bool = False
+    virtual_camera: VirtualCameraStatus | None = None

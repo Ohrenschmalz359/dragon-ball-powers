@@ -1137,7 +1137,7 @@ def test_missing_model_files_reported_without_crash(tmp_path):
     error = tr.status.error
     assert error is not None and error.startswith("Tracking model missing: ")
     assert HAND_MODEL_FILE in error and pose_model_file("lite") in error
-    assert "Run setup.bat to download the models." in error
+    assert SETUP_HINT in error
     assert tr.status.pose_model == ""
     tr.stop()
 
@@ -1313,7 +1313,7 @@ def test_real_pose_only_when_hand_model_missing(models_dir, tmp_path):
         assert result.hands == [] and result.pose is not None
         assert result.segmentation is not None and result.inference_ms["hands"] == 0.0
         error = tr.status.error
-        assert error == f"Tracking model missing: {HAND_MODEL_FILE}. Run setup.bat to download the models."
+        assert error == f"Tracking model missing: {HAND_MODEL_FILE}. {SETUP_HINT}"
         assert tr.status.pose_model == "lite" and tr.status.hands_ms == 0.0
 
 
