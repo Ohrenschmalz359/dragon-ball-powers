@@ -105,6 +105,38 @@ namespace
         return abs(left - 82) <= 8 && abs(right - 144) <= 8;
     }
 
+    bool ContainsNoCase(const wchar_t* text, const wchar_t* part)
+    {
+        std::wstring a(text), b(part);
+        for (auto& c : a) c = (wchar_t)towlower(c);
+        for (auto& c : b) c = (wchar_t)towlower(c);
+        return a.find(b) != std::wstring::npos;
+    }
+
+    void PrintAttributes(IMFAttributes* attributes)
+    {
+        UINT32 count = 0;
+        attributes->GetCount(&count);
+        for (UINT32 i = 0; i < count; i++)
+        {
+            GUID key{};
+            PROPVARIANT value;
+            PropVariantInit(&value);
+            if (SUCCEEDED(attributes->GetItemByIndex(i, &key, &value)))
+            {
+                wchar_t keyText[64];
+                StringFromGUID2(key, keyText, ARRAYSIZE(keyText));
+                if (value.vt == VT_LPWSTR)
+                    printf("    %ls = '%ls'\n", keyText, value.pwszVal);
+                else if (value.vt == VT_UI4)
+                    printf("    %ls = %lu\n", keyText, value.ulVal);
+                else
+                    printf("    %ls (type %u)\n", keyText, value.vt);
+            }
+            PropVariantClear(&value);
+        }
+    }
+
     int ReadAndCheck(IMFSourceReader* reader, REFGUID subtype, FrameWriter& writer, bool createMemory, int maxFrames)
     {
         ComPtr<IMFMediaType> type;
@@ -227,15 +259,25 @@ namespace
             for (UINT32 i = 0; i < count; i++)
             {
                 wchar_t* name = nullptr;
+                wchar_t* link = nullptr;
                 UINT32 length = 0;
-                if (SUCCEEDED(devices[i]->GetAllocatedString(MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME, &name, &length)))
+                auto nameResult = devices[i]->GetAllocatedString(MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME, &name, &length);
+                auto linkResult = devices[i]->GetAllocatedString(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK, &link, &length);
+                if (attempt == 0)
                 {
-                    if (attempt == 0)
-                        printf("  camera: %ls\n", name);
-                    if (!camera && wcscmp(name, kCameraName) == 0)
-                        camera = devices[i];
-                    CoTaskMemFree(name);
+                    printf("  device %u: name '%ls' (0x%08X) link '%ls' (0x%08X)\n", i, SUCCEEDED(nameResult) ? name : L"",
+                        (unsigned)nameResult, SUCCEEDED(linkResult) ? link : L"", (unsigned)linkResult);
+                    PrintAttributes(devices[i]);
                 }
+                bool byName = SUCCEEDED(nameResult) && wcscmp(name, kCameraName) == 0;
+                bool byLink = SUCCEEDED(linkResult) && (ContainsNoCase(link, L"d61c8d41-ad63-4319-ae6f-eb46e5feb187") ||
+                    (count == 1 && ContainsNoCase(link, L"vcamdevapi")));
+                if (!camera && (byName || byLink))
+                    camera = devices[i];
+                if (SUCCEEDED(nameResult))
+                    CoTaskMemFree(name);
+                if (SUCCEEDED(linkResult))
+                    CoTaskMemFree(link);
                 devices[i]->Release();
             }
             CoTaskMemFree(devices);

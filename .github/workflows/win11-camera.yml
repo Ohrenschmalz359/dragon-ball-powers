@@ -82,7 +82,8 @@ jobs:
       - name: Devices after the installation
         if: matrix.arch == 'arm64'
         run: |
-          powershell -NoProfile -Command "Get-PnpDevice | Where-Object { $_.Class -in 'Camera','Image','SoftwareComponent' -or $_.FriendlyName -like '*Dragon*' } | Format-Table -AutoSize Status,Class,FriendlyName,InstanceId | Out-String -Width 300"
+          powershell -NoProfile -Command "Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -like 'SWD*' -or $_.Class -in 'Camera','Image' } | ForEach-Object { '{0} | {1} | {2} | {3}' -f $_.Status, $_.Class, $_.FriendlyName, $_.InstanceId }"
+          pnputil /enum-devices /class Camera
           exit /b 0
 
       - name: Virtual camera test (through the frame server)
