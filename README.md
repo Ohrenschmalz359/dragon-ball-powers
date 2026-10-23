@@ -11,37 +11,37 @@ movements frame by frame.
 
 ---
 
-## Kurzanleitung (Deutsch)
+## Quick start
 
-1. **Einmalig einrichten:** `setup.bat` im Projektordner doppelklicken. Es sucht bzw.
-   installiert Python 3.12 (nur in diesem Ordner), legt `.venv` an, installiert die
-   Pakete und lädt die Tracking-Modelle (Internet nur dieses eine Mal nötig).
-2. **Starten:** `run.bat` doppelklicken (oder im Terminal: `run.bat`).
-3. **Spielen:** ca. 1,5–2,5 m vor die Kamera stellen, Oberkörper und Hände sichtbar.
-   Hände vor der Brust zusammenführen → die Ki-Kugel entsteht zwischen den Händen.
-   Halten zum Aufladen, dann **beide Arme schnell nach vorne stoßen** → Kamehameha.
-   Arme ruckartig auseinanderreißen → Energy Burst. Taste **4** → Aura.
-4. **Tastatur zum Testen:** `LEERTASTE` halten = aufladen, loslassen = feuern;
-   `1/2/3` Fähigkeit, `4` Aura, `V` Videocalls, `F` Vollbild, `C` Kalibrieren,
-   `TAB` Einstellungen, `D` Debug-Overlay, `ESC` Vollbild verlassen / beenden.
-5. **Videocalls (Discord, Zoom, Teams, Google Meet …):** einmalig
-   `install_virtual_camera.bat` doppelklicken und die Admin-Abfrage bestätigen (kein OBS
-   nötig), dann in der App **V** drücken (oben erscheint „VCAM LIVE“) und im Call-Programm
-   **„Dragon Ball Powers“** als Kamera auswählen. Die anderen sehen dich mit den Effekten,
-   ohne HUD und seitenrichtig. **WhatsApp:** Die WhatsApp-Desktop-App zeigt virtuelle
-   Kameras derzeit nicht an. Nimm stattdessen **WhatsApp Web** (web.whatsapp.com) in Edge
-   oder Chrome, oder teile im Call per Bildschirmfreigabe das App-Fenster (`H` blendet das
-   HUD aus). Am Handy geht das alles nicht. Details:
+1. **Set up once:** double-click `setup.bat` in the project folder. It finds or installs
+   Python 3.12 (inside this folder only), creates `.venv`, installs the packages and
+   downloads the tracking models (internet is needed only this once).
+2. **Start:** double-click `run.bat` (or type `run.bat` in a terminal).
+3. **Play:** stand about 1.5–2.5 m from the camera with your upper body and hands
+   visible. Bring your hands together in front of your chest → the ki orb forms between
+   your hands. Hold to charge, then **push both arms forward quickly** → Kamehameha.
+   Throw your arms apart → Energy Burst. Key **4** → aura.
+4. **Keyboard for testing:** hold `SPACE` = charge, release = fire; `1/2/3` ability,
+   `4` aura, `V` video calls, `F` fullscreen, `C` calibrate, `TAB` settings,
+   `D` debug overlay, `ESC` leave fullscreen / quit.
+5. **Video calls (Discord, Zoom, Teams, Google Meet …):** double-click
+   `install_virtual_camera.bat` once and confirm the administrator prompt (no OBS
+   needed), then press **V** in the app ("VCAM LIVE" appears at the top) and choose
+   **"Dragon Ball Powers"** as the camera in the call program. The others see you with
+   the effects, without the HUD and the right way round. **WhatsApp:** the WhatsApp
+   Desktop app currently does not list virtual cameras; use **WhatsApp Web**
+   (web.whatsapp.com) in Edge or Chrome instead, or share the app window with the call's
+   screen sharing (`H` hides the HUD). None of this works on phones. Details:
    [Video calls](#video-calls-discord-zoom-teams-google-meet-).
-6. **Probleme?** `run.bat --check` prüft Python, Pakete, Modelle, OpenGL, Kameras,
-   Audio und die virtuelle Kamera. Das Log liegt in `logs\dragon_ball_powers.log`.
+6. **Problems?** `run.bat --check` checks Python, packages, models, OpenGL, cameras,
+   audio and the virtual camera. The log is in `logs\dragon_ball_powers.log`.
 
-**Mac (und Linux):** Terminal im Projektordner öffnen, einmalig `bash setup.sh`, danach
-`bash run.sh` zum Starten. macOS fragt beim ersten Start, ob das Terminal die Kamera
-benutzen darf: erlauben, dann in der App START CAMERA drücken. Für Videocalls auf dem Mac
-wird [OBS Studio](https://obsproject.com) 30+ gebraucht (einmal „Start Virtual Camera“
-klicken, Systemerweiterung erlauben) – ohne OBS lässt Apple keine virtuelle Kamera zu.
-Dann geht es auch in **FaceTime**. Details: [macOS and Linux](#macos-and-linux).
+**Mac (and Linux):** open a terminal in the project folder, run `bash setup.sh` once and
+`bash run.sh` to start. On the first start macOS asks whether Terminal may use the
+camera: allow it, then press START CAMERA in the app. Video calls on a Mac need
+[OBS Studio](https://obsproject.com) 30+ (click "Start Virtual Camera" once and allow the
+system extension) — without OBS, Apple does not allow a virtual camera. Then it also
+works in **FaceTime**. Details: [macOS and Linux](#macos-and-linux).
 
 ---
 
