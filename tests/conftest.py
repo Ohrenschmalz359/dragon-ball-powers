@@ -1,6 +1,7 @@
 """Shared pytest fixtures.
 
-Tests never touch the real ``config/`` or ``logs/`` folders and never need a webcam.
+Tests never touch the real ``config/`` or ``logs/`` folders, never feed an installed
+Windows 11 camera and never need a webcam.
 pygame runs with dummy video/audio drivers unless a driver is already configured.
 """
 
@@ -14,6 +15,7 @@ from pathlib import Path
 _TMP_ROOT = Path(tempfile.mkdtemp(prefix="dbp-tests-"))
 os.environ.setdefault("DBP_CONFIG_DIR", str(_TMP_ROOT / "config"))
 os.environ.setdefault("DBP_LOGS_DIR", str(_TMP_ROOT / "logs"))
+os.environ.setdefault("DBP_WIN11_CAMERA", "0")
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")

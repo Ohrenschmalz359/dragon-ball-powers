@@ -981,8 +981,12 @@ class App:
         if status.state is not self._vcam_state:
             self._vcam_state = status.state
             if status.state is VirtualCameraState.RUNNING:
-                self.ui.notify(f"Virtual camera live: choose '{status.device or 'OBS Virtual Camera'}' as the "
-                               "camera in Discord, Zoom, Teams, Google Meet…", duration=7.0)
+                # Several cameras fed together are listed as "A / B" (virtual_camera.MultiCamera).
+                device = status.device or "OBS Virtual Camera"
+                names = " or ".join(f"'{name}'" for name in device.split(" / "))
+                apps = "WhatsApp, Discord, Zoom, Teams…" if "Windows 11" in device else \
+                    "Discord, Zoom, Teams, Google Meet…"
+                self.ui.notify(f"Virtual camera live: choose {names} as the camera in {apps}", duration=7.0)
             elif status.state is VirtualCameraState.ERROR:
                 self.ui.notify(status.error or "The virtual camera failed", "error", 10.0)
                 self._virtual_camera_failed()

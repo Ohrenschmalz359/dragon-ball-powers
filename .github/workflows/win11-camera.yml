@@ -1,0 +1,108 @@
+name: Windows 11 virtual camera
+
+# Builds native/win11_camera (the media source behind the camera "Dragon Ball Powers
+# (Windows 11)") and tests it: in-process on Windows Server (x64) and through the real
+# Windows 11 camera frame server on the Windows 11 Arm64 runner.
+
+on:
+  push:
+    paths:
+      - 'native/win11_camera/**'
+      - '.github/workflows/win11-camera.yml'
+  pull_request:
+    paths:
+      - 'native/win11_camera/**'
+      - '.github/workflows/win11-camera.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            arch: x64
+          - runner: windows-11-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: cmd
+        working-directory: native/win11_camera
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get WIL (header-only library)
+        run: git clone --depth 1 --branch v1.0.250325.1 https://github.com/microsoft/wil deps\wil
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+
+      - name: Build
+        run: call build.cmd
+
+      - name: Log folder for the media source
+        run: mkdir "%ProgramData%\Dragon Ball Powers"
+
+      - name: Media source test (in-process)
+        # Windows Server images may lack Media Foundation; the Windows 11 job is the reference.
+        continue-on-error: ${{ matrix.arch == 'x64' }}
+        run: out\CameraTest.exe inproc "%CD%\out\DragonBallPowersCamera.dll"
+
+      - name: Allow camera access and start the camera services (Windows 11)
+        if: matrix.arch == 'arm64'
+        run: |
+          reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam" /v Value /t REG_SZ /d Allow /f
+          reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam" /v Value /t REG_SZ /d Allow /f
+          reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam\NonPackaged" /v Value /t REG_SZ /d Allow /f
+          sc qc FrameServer
+          sc config FrameServer start= demand
+          sc config FrameServerMonitor start= demand
+          net start FrameServer
+          net start FrameServerMonitor
+          sc query FrameServer
+          sc query FrameServerMonitor
+          echo session %SESSIONNAME% user %USERNAME%
+          exit /b 0
+
+      - name: Install the virtual camera (Windows 11)
+        if: matrix.arch == 'arm64'
+        run: |
+          mkdir "%ProgramFiles%\Dragon Ball Powers Test"
+          copy /y out\DragonBallPowersCamera.dll "%ProgramFiles%\Dragon Ball Powers Test\" || exit /b 1
+          start "" /wait regsvr32 /s /n /i "%ProgramFiles%\Dragon Ball Powers Test\DragonBallPowersCamera.dll"
+          if errorlevel 1 (echo regsvr32 failed & exit /b 1)
+          echo installed
+
+      - name: Devices after the installation
+        if: matrix.arch == 'arm64'
+        run: |
+          powershell -NoProfile -Command "Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -like 'SWD*' -or $_.Class -in 'Camera','Image' } | ForEach-Object { '{0} | {1} | {2} | {3}' -f $_.Status, $_.Class, $_.FriendlyName, $_.InstanceId }"
+          pnputil /enum-devices /class Camera
+          exit /b 0
+
+      - name: Virtual camera test (through the frame server)
+        if: matrix.arch == 'arm64'
+        run: out\CameraTest.exe device
+
+      - name: Remove the virtual camera
+        if: always() && matrix.arch == 'arm64'
+        run: start "" /wait regsvr32 /s /n /u /i "%ProgramFiles%\Dragon Ball Powers Test\DragonBallPowersCamera.dll"
+
+      - name: Media source log
+        if: always()
+        run: if exist "%ProgramData%\Dragon Ball Powers\win11-camera.log" type "%ProgramData%\Dragon Ball Powers\win11-camera.log"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: DragonBallPowersCamera-${{ matrix.arch }}
+          path: |
+            native/win11_camera/out/DragonBallPowersCamera.dll
+            native/win11_camera/out/DragonBallPowersCamera.pdb
+          if-no-files-found: warn

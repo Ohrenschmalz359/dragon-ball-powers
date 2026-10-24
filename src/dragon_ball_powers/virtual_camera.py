@@ -53,8 +53,8 @@ STOP_TIMEOUT = 3.0
 OPEN_RETRY_SECONDS = 1.5
 OPEN_RETRY_INTERVAL = 0.1
 
-INSTALL_HINT = ("No virtual camera driver found. Run install_virtual_camera.bat once (it adds the camera "
-                "'Dragon Ball Powers'), or install OBS Studio.")
+INSTALL_HINT = ("No virtual camera driver found. Run install_virtual_camera.bat once (camera 'Dragon Ball "
+                "Powers'); on Windows 11 install_win11_camera.bat adds one that WhatsApp sees too.")
 MAC_HINT = ("No virtual camera found. Install OBS Studio 30 or newer, click 'Start Virtual Camera' once, "
             "allow the system extension in System Settings, then quit OBS.")
 IN_USE_HINT = ("The virtual camera is busy. Stop 'Virtual Camera' in OBS if it runs, or switch the camera "
@@ -78,6 +78,72 @@ def _pyvirtualcam_camera(**kwargs: Any) -> Any:
     import pyvirtualcam  # optional dependency, imported on first use
 
     return pyvirtualcam.Camera(**kwargs)
+
+
+class MultiCamera:
+    """Sends every picture to several virtual cameras (e.g. Unity Capture + Windows 11)."""
+
+    def __init__(self, cameras: list[Any]) -> None:
+        self._cameras = list(cameras)
+
+    @property
+    def device(self) -> str:
+        return " / ".join(str(getattr(c, "device", "")) for c in self._cameras)
+
+    @property
+    def backend(self) -> str:
+        return "+".join(str(getattr(c, "backend", "")) for c in self._cameras)
+
+    def send(self, frame: np.ndarray) -> None:
+        for camera in list(self._cameras):
+            try:
+                camera.send(frame)
+            except Exception as exc:  # noqa: BLE001 - one broken driver must not stop the others
+                if len(self._cameras) == 1:
+                    raise
+                log.warning("Virtual camera '%s' failed and is dropped: %s", getattr(camera, "device", "?"), exc)
+                self._cameras.remove(camera)
+                _close_quietly(camera)
+
+    def close(self) -> None:
+        for camera in self._cameras:
+            _close_quietly(camera)
+        self._cameras = []
+
+
+def _close_quietly(camera: Any) -> None:
+    try:
+        camera.close()
+    except Exception as exc:  # noqa: BLE001
+        log.debug("Closing a virtual camera failed: %s", exc)
+
+
+def _default_camera(**kwargs: Any) -> Any:
+    """Every available virtual camera: pyvirtualcam's driver (OBS, Unity Capture,
+    v4l2loopback) and, when installed, the Windows 11 camera - fed together.
+
+    ``backend`` None = all; ``"win11"`` = only the Windows 11 camera; a pyvirtualcam backend
+    name = only that one; ``"win11+<name>"`` (a restart of a combined output) = both.
+    """
+    from dragon_ball_powers import win11_camera
+
+    backend = kwargs.get("backend")
+    parts = [p for p in str(backend).split("+") if p] if backend else []
+    cameras: list[Any] = []
+    if (not parts or win11_camera.BACKEND in parts) and win11_camera.installed():
+        cameras.append(win11_camera.Win11CameraSink(kwargs["width"], kwargs["height"]))
+    others = [p for p in parts if p != win11_camera.BACKEND]
+    if not parts or others:
+        try:
+            cameras.append(_pyvirtualcam_camera(**dict(kwargs, backend=others[0] if others else None)))
+        except Exception as exc:  # noqa: BLE001 - fine as long as the Windows 11 camera is there
+            if not cameras:
+                raise
+            log.info("Only the Windows 11 camera is used (%s)", friendly_error(exc))
+    if not cameras:
+        raise RuntimeError(f"'{win11_camera.BACKEND}' backend: the camera '{win11_camera.DEVICE_NAME}' "
+                           "is not installed. Did you install it with install_win11_camera.bat?")
+    return cameras[0] if len(cameras) == 1 else MultiCamera(cameras)
 
 
 def _error_lines(exc: BaseException) -> list[str]:
@@ -140,7 +206,7 @@ def probe(settings: VirtualCameraSettings | None = None,
           camera_factory: CameraFactory | None = None) -> tuple[bool, str]:
     """Open and close the virtual camera once (``--check``). Returns ``(ok, detail)``."""
     s = settings or VirtualCameraSettings()
-    factory = camera_factory or _pyvirtualcam_camera
+    factory = camera_factory or _default_camera
     try:
         cam = factory(**_open_kwargs(s, even_size(s)))
     except Exception as exc:  # noqa: BLE001 - every driver problem is reported, never raised
@@ -167,7 +233,7 @@ class VirtualCamera:
 
     def __init__(self, settings: VirtualCameraSettings, camera_factory: CameraFactory | None = None) -> None:
         self._settings = dataclasses.replace(settings)
-        self._factory = camera_factory or _pyvirtualcam_camera
+        self._factory = camera_factory or _default_camera
         self._lock = threading.Lock()
         self._wake = threading.Condition(self._lock)
         self._thread: threading.Thread | None = None

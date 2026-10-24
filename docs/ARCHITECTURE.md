@@ -41,6 +41,8 @@ public API, update this document.
  video calls (optional): same SceneInput + RenderList ──▶ second, offscreen renderer
  (call resolution, mirror_output, callout-only UI) ──▶ virtual_camera.py ──▶ pyvirtualcam
  device ("OBS Virtual Camera") ──▶ Discord / Zoom / Teams / browser calls (Meet, FaceTime links)
+ and, on Windows 11, win11_camera.py ──▶ shared memory ──▶ media source in the camera frame
+ server ("Dragon Ball Powers (Windows 11)") ──▶ every app, also WhatsApp Desktop
 ```
 
 Threads: **camera capture thread** → **tracker thread** (uses two inference worker
@@ -352,6 +354,12 @@ def friendly_error(exc) -> str
   Unity Capture's DirectShow filter (pinned commit, SHA256-verified, one UAC prompt for
   regsvr32 only) as the device "Dragon Ball Powers"; OBS Studio's "OBS Virtual Camera" also
   works (one sender at a time). macOS: OBS 30+ camera extension. Linux: v4l2loopback.
+* The default factory `_default_camera` adds the Windows 11 camera (5.11) when it is
+  installed and feeds it together with the pyvirtualcam device through `MultiCamera`
+  (`device` "A / B", `backend` "win11+unitycapture"; a camera that fails while another
+  still works is dropped with a warning). Backend `win11` = only the Windows 11 camera; a
+  restart re-opens exactly the cameras of the last run. Without any pyvirtualcam driver the
+  Windows 11 camera is used alone.
 * The sender thread sends black first, then the newest picture; when none arrives for 2.5
   frame intervals it repeats the last one (steady stream for call apps). Wrong sizes are
   scaled, unusable pictures skipped. Open failures → `ERROR` with a hint (install OBS /
@@ -375,6 +383,38 @@ def friendly_error(exc) -> str
   automatically - the app must not capture the device it sends to. When only virtual
   outputs are listed, `choose_camera_index` returns `NO_CAMERA` (-1): the app keeps the
   camera off and asks for a webcam (a device picked by name is still opened).
+
+### 5.11 win11_camera.py + native/win11_camera — Windows 11 camera
+
+Apps such as WhatsApp Desktop and the Windows Camera app only list cameras of the Windows
+camera frame server, not DirectShow filters. `native/win11_camera` is a C++/WinRT COM DLL
+(WIL, static CRT, CPU only) with a Media Foundation media source; `regsvr32 /n /i` calls
+its `DllInstall`, which registers the CLSID in HKLM and creates the camera with
+`MFCreateVirtualCamera(SoftwareCameraSource, Lifetime_System, Access_AllUsers)`;
+`/n /u /i` removes both. `install_win11_camera.bat` copies the DLL from
+`drivers/win11/<x64|arm64>` (SHA256 pinned in the script) to `%ProgramFiles%\Dragon Ball
+Powers` (readable by the frame server's Local Service account) and grants the services
+write access to the log `%ProgramData%\Dragon Ball Powers\win11-camera.log`.
+
+* Media source: one stream, RGB32 and NV12 at 1280×720, 30 fps, paced in `RequestSample`;
+  uses the frame server's sample allocator when offered. Without a fresh picture (none for
+  3 s) it sends a dark blue placeholder.
+* Shared memory `Global\DragonBallPowersVirtualCamera`, created by the media source when an
+  app starts the camera (an ordinary user may not create `Global` objects; the DACL lets
+  authenticated users read/write): a 64-byte header (magic `DBPV`, version 1, width,
+  height, stride, format 1 = BGRA, a seqlock `sequence` at offset 24 - odd while
+  writing -, timestamp, writer pid) followed by top-down BGRA pixels, at most 1920×1080.
+  The media source scales to its output size (nearest neighbour) and converts to NV12.
+* `Win11CameraSink(width, height)` (pyvirtualcam-like `send` / `close`, `device`,
+  `backend` = "win11") opens the section about once per second until an app uses the
+  camera, drops pictures until then and writes RGB → BGRA under the seqlock.
+  `installed()` checks the CLSID in HKLM (`DBP_WIN11_CAMERA=0` hides the camera; the tests
+  set it). `tests/test_win11_camera.py` compares the layout with `SharedFrame.h`.
+* CI (`.github/workflows/win11-camera.yml`) builds x64 and arm64, runs
+  `CameraTest.exe inproc` (source loaded directly) and on the Windows 11 Arm64 runner
+  installs the camera and reads the test picture through the frame server
+  (`CameraTest.exe device`, RGB32 and NV12). The committed DLLs are that workflow's
+  artifacts.
 
 ## 6. Visual design bible
 
@@ -449,6 +489,8 @@ gestures → abilities → effects → renderer) and `tests/test_app_smoke.py` (
 application loop, headless, with the generated test pattern and scripted key presses).
 `tests/test_virtual_camera.py` runs the app through `tests/fake_virtual_camera.py`, which
 replaces every pyvirtualcam backend with a fake driver (no real device is touched).
+`tests/test_win11_camera.py` tests the Windows 11 camera writer against a fake section;
+the native media source is tested by its CI workflow (5.11).
 
 ## 9. Implementation notes (as built)
 

@@ -1079,6 +1079,7 @@ def test_choose_camera_index_rules():
 
 @pytest.mark.parametrize("name, expected", [
     ("OBS Virtual Camera", True), ("OBS-Camera", True), ("Unity Video Capture", True), ("Dragon Ball Powers", True),
+    ("Dragon Ball Powers (Windows 11)", True), ("Dragon Ball Powers (Windows 11) (Windows Virtual Camera)", True),
     ("ManyCam Virtual Webcam", True), ("HP 5MP Camera", False), ("NVIDIA Broadcast", False),
     ("DroidCam Source 3", False), ("Logitech BRIO", False), ("Virtualis Cam", False), ("Camera 0", False),
 ])

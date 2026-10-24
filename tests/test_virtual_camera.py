@@ -467,6 +467,16 @@ def test_app_announces_live_and_failure_once(fonts):
     assert not settings.virtual_camera.enabled      # not retried at the next start
 
 
+def test_app_names_every_camera_it_feeds(fonts):
+    app, settings = make_app(fonts, RecordingRenderer((320, 180)))
+    settings.virtual_camera.enabled = True
+    app.vcam.status = VirtualCameraStatus(VirtualCameraState.RUNNING,
+                                          device="Dragon Ball Powers (Windows 11) / Dragon Ball Powers")
+    app._poll_virtual_camera()
+    text = app.ui._toasts[-1].text
+    assert "'Dragon Ball Powers (Windows 11)' or 'Dragon Ball Powers'" in text and "WhatsApp" in text
+
+
 def test_test_pattern_is_not_flipped_for_the_call(fonts):
     rec = RecordingRenderer((320, 180))
     app, settings = make_app(fonts, rec, test_pattern=True)    # the camera module never mirrors it

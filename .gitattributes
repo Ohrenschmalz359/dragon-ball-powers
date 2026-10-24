@@ -18,3 +18,4 @@
 *.ttf binary
 *.png binary
 *.jpg binary
+*.dll binary

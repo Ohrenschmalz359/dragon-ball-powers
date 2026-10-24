@@ -45,6 +45,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SETUP_BAT = ROOT / "setup.bat"
 RUN_BAT = ROOT / "run.bat"
 VCAM_BAT = ROOT / "install_virtual_camera.bat"
+WIN11_BAT = ROOT / "install_win11_camera.bat"
+WIN11_DRIVERS = ROOT / "drivers" / "win11"
 SETUP_SH = ROOT / "setup.sh"
 RUN_SH = ROOT / "run.sh"
 SCRIPT = ROOT / "scripts" / "download_models.py"
@@ -72,7 +74,7 @@ EXPECTED_MODELS = {
         "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b", 30664242),
 }
 
-BATCH_FILES = [SETUP_BAT, RUN_BAT, VCAM_BAT]
+BATCH_FILES = [SETUP_BAT, RUN_BAT, VCAM_BAT, WIN11_BAT]
 
 
 def _text(path: Path) -> str:
@@ -184,6 +186,17 @@ def test_virtual_camera_bat_pins_the_driver():
     # Only the registry step runs elevated, through one UAC prompt with a fixed argument.
     assert "-Verb RunAs" in text and "--elevated-install" in text and "fltmc.exe" in text
     assert '"/i:UnityCaptureName=%VC_NAME%"' in text
+
+
+def test_win11_camera_bat_pins_the_committed_drivers():
+    text = _text(WIN11_BAT)
+    for arch, var in (("x64", "CAM_SHA_X64"), ("arm64", "CAM_SHA_ARM64")):
+        pinned = re.search(rf'(?m)^set "{var}=(.*)"\r?$', text).group(1)
+        assert pinned == _sha256(WIN11_DRIVERS / arch / "DragonBallPowersCamera.dll"), arch
+    assert 'set "CAM_NAME=Dragon Ball Powers (Windows 11)"' in text
+    assert "regsvr32.exe\" /s /n /i" in text and "regsvr32.exe\" /s /n /u /i" in text
+    assert "CurrentBuildNumber" in text and "LSS 22000" in text
+    assert "-Verb RunAs" in text and "fltmc.exe" in text
 
 
 def _probe_code() -> str:
@@ -902,8 +915,13 @@ def project_copy(win_sandbox) -> ProjectCopy:
     posix_root, win_root = win_sandbox
     proj = posix_root / TRICKY_NAME
     (proj / "scripts").mkdir(parents=True)
-    for name in ("setup.bat", "run.bat", "install_virtual_camera.bat", "requirements.txt", "requirements-dev.txt"):
+    for name in ("setup.bat", "run.bat", "install_virtual_camera.bat", "install_win11_camera.bat", "requirements.txt",
+                 "requirements-dev.txt"):
         shutil.copyfile(ROOT / name, proj / name)
+    for arch in ("x64", "arm64"):
+        (proj / "drivers" / "win11" / arch).mkdir(parents=True)
+        shutil.copyfile(WIN11_DRIVERS / arch / "DragonBallPowersCamera.dll",
+                        proj / "drivers" / "win11" / arch / "DragonBallPowersCamera.dll")
     shutil.copyfile(SCRIPT, proj / "scripts" / "download_models.py")
     _write_wrapper(posix_root, "wrap.bat")
     return ProjectCopy(proj, posix_root, win_root)
@@ -986,6 +1004,20 @@ def test_virtual_camera_bat_dry_run_changes_nothing(project_copy):
     code, out = _run_batch(project_copy, "install_virtual_camera.bat", "--uninstall")
     assert code == 0 and "Nothing to remove" in out, out      # no driver files: no UAC prompt
     assert _snapshot(project_copy.proj) == before                # nothing downloaded or created
+
+
+def test_win11_camera_bat_help_bad_option_and_dry_run(project_copy):
+    code, out = _run_batch(project_copy, "install_win11_camera.bat", "--help")
+    assert code == 0 and "--uninstall" in out and "Windows 11" in out and "Exit codes" in out, out
+    code, out = _run_batch(project_copy, "install_win11_camera.bat", "--bogus")
+    assert code == 2 and 'Unknown option "--bogus"' in out, out
+    before = _snapshot(project_copy.proj)
+    code, out = _run_batch(project_copy, "install_win11_camera.bat", "--dry-run")
+    assert code == 0 and "SHA256 verified" in out and "Dry run finished" in out, out
+    assert re.search(r"Windows build \d+", out), out
+    code, out = _run_batch(project_copy, "install_win11_camera.bat", "--uninstall", "--dry-run")
+    assert code == 0 and "regsvr32 /s /n /u /i" in out, out
+    assert _snapshot(project_copy.proj) == before
 
 
 def test_setup_bat_help(project_copy):

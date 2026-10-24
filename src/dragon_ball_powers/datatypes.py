@@ -187,7 +187,7 @@ class VirtualCameraStatus:
 
     state: VirtualCameraState = VirtualCameraState.OFF
     device: str = ""                   # e.g. "OBS Virtual Camera"
-    backend: str = ""                  # pyvirtualcam backend: "obs" | "unitycapture" | "v4l2loopback"
+    backend: str = ""                  # "obs" | "unitycapture" | "v4l2loopback" | "win11", several: "a+b"
     resolution: tuple[int, int] = (0, 0)
     fps: float = 0.0
     frames: int = 0                    # frames sent to the device

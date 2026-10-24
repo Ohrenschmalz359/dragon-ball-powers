@@ -78,7 +78,8 @@ NO_CAMERA = -1
 _BACKEND_NAMES: tuple[str, ...] = ("auto", "dshow", "msmf", "any")
 _IR_NAME = re.compile(r"\bIR\b", re.IGNORECASE)
 # Virtual camera outputs: OBS, Unity Capture - also as "Dragon Ball Powers", the device
-# install_virtual_camera.bat registers for this app -, ManyCam ...
+# install_virtual_camera.bat registers for this app, and "Dragon Ball Powers (Windows 11)"
+# from install_win11_camera.bat -, ManyCam ...
 _VIRTUAL_NAME = re.compile(r"\bvirtual\b|\bobs[- ]cam(era)?\b|unity video capture|dragon ball powers",
                            re.IGNORECASE)
 _GENERIC_NAME = re.compile(r"Camera \d+")
